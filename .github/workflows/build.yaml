@@ -320,8 +320,8 @@ jobs:
           ./code/.pio/build/esp32s3-aleksei/firmware.bin
           ./code/.pio/build/esp32s3-aleksei/partitions.bin
           ./code/.pio/build/esp32s3-aleksei/bootloader.bin
-      key: generated-files-${{ github.run_id }}
-      restore-keys: generated-files
+        key: generated-files-${{ github.run_id }}
+        restore-keys: generated-files
     - name: Prepare manual_setup_s3
       run: |
         rm -rf manual_setup_s3
