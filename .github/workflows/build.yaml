@@ -107,6 +107,20 @@ jobs:
         mkdir demo
         cp -r ./sd-card/demo/* ./demo/
 
+    - name: Upload ESP32 & S3 build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-binaries
+        if-no-files-found: error
+        path: |
+          code/.pio/build/esp32cam/firmware.bin
+          code/.pio/build/esp32cam/bootloader.bin
+          code/.pio/build/esp32cam/partitions.bin
+          code/.pio/build/esp32s3-aleksei/firmware.bin
+          code/.pio/build/esp32s3-aleksei/bootloader.bin
+          code/.pio/build/esp32s3-aleksei/partitions.bin
+
+
 #########################################################################################
 ## Pack for Update
 #########################################################################################
@@ -122,6 +136,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-binaries
+        path: .
 
     - name: Update generated-files cache on every commit
       uses: actions/cache@v4
@@ -173,9 +193,8 @@ jobs:
     - name: Upload update as update.zip artifact (Firmware + Web UI + CNN)
       uses: actions/upload-artifact@v4
       with:
-        name: "AI-on-the-edge-device__update__${{ steps.vars.outputs.branch }}_(${{ steps.vars.outputs.sha_short }})"
+        name: update
         path: ./update/*
-
 
 #########################################################################################
 ## Pack for Remote Setup 
@@ -192,6 +211,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-binaries
+        path: .
 
     - name: Update generated-files cache on every commit
       uses: actions/cache@v4
@@ -241,9 +265,8 @@ jobs:
     - name: Upload remote_setup as remote_setup.zip artifact (Firmware + Web UI + Config)
       uses: actions/upload-artifact@v4
       with:
-        name: "AI-on-the-edge-device__remote-setup__${{ steps.vars.outputs.branch }}_(${{ steps.vars.outputs.sha_short }})"
+        name: remote_setup
         path: ./remote_setup/*
-
 
 #########################################################################################
 ## Pack for a fresh install (USB flashing) (manual_setup)
@@ -255,6 +278,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-binaries
+        path: .
 
     - name: Update generated-files cache on every commit
       uses: actions/cache@v4
@@ -306,8 +334,9 @@ jobs:
     - name: Upload manual_setup.zip artifact (Firmware + Bootloader + Partitions + Web UI)
       uses: actions/upload-artifact@v4
       with:
-        name: "AI-on-the-edge-device__manual-setup__${{ steps.vars.outputs.branch }}_(${{ steps.vars.outputs.sha_short }})"
-        path: ./manual_setup
+        name: manual_setup
+        path: ./manual_setup/*
+
 
   pack-for-manual_setup_s3:
     runs-on: ubuntu-latest
@@ -322,6 +351,11 @@ jobs:
           ./code/.pio/build/esp32s3-aleksei/bootloader.bin
         key: generated-files-${{ github.run_id }}
         restore-keys: generated-files
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-binaries
+        path: .
     - name: Prepare manual_setup_s3
       run: |
         rm -rf manual_setup_s3
@@ -332,8 +366,8 @@ jobs:
     - name: Upload manual_setup_s3
       uses: actions/upload-artifact@v4
       with:
-        name: "AI-on-the-edge-device__manual-setup-s3__${{ github.ref_name }}_(${{ github.sha }})"
-        path: ./manual_setup_s3
+        name: manual_setup_s3
+        path: ./manual_setup_s3/*
 
 #########################################################################################
 ## Prepare and create release
@@ -352,32 +386,35 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Update update cache on every commit
-      uses: actions/cache@v4
-      with:
-        path: update
-        key: update-${{ github.run_id }}
-        restore-keys: update # This matches above key as it is only used as a prefix. it the restores the nearest cache, see https://github.com/restore-keys:/blob/main/tips-and-workarounds.md#update-a-cache
-
-    - name: Update remote_setup cache on every commit
-      uses: actions/cache@v4
-      with:
-        path: remote_setup
-        key: remote_setup-${{ github.run_id }}
-        restore-keys: remote_setup # This matches above key as it is only used as a prefix. it the restores the nearest cache, see https://github.com/restore-keys:/blob/main/tips-and-workarounds.md#update-a-cache
-
-    - name: Update manual_setup cache on every commit
-      uses: actions/cache@v4
-      with:
-        path: manual_setup
-        key: manual_setup-${{ github.run_id }}
-        restore-keys: manual_setup # This matches above key as it is only used as a prefix. it the restores the nearest cache, see https://github.com/restore-keys:/blob/main/tips-and-workarounds.md#update-a-cache
-
     - name: Set Variables
       id: vars
       run: |
         echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
         echo "branch=$(echo ${{ github.ref_name }} | tr / __)" >> $GITHUB_OUTPUT
+
+    - name: Download update artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: update
+        path: update
+    
+    - name: Download manual_setup artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: manual_setup
+        path: manual_setup
+    
+    - name: Download remote_setup artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: remote_setup
+        path: remote_setup
+    
+    - name: Download manual_setup_s3 artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: manual_setup_s3
+        path: manual_setup_s3
 
     - name: Prepare artifacts for release
       run: |
