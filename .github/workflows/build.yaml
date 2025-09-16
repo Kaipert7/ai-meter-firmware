@@ -348,45 +348,67 @@ jobs:
   pack-for-manual_setup_s3:
     runs-on: ubuntu-latest
     needs: build
+
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v4
-      with:
-        path: |
-          ./code/.pio/build/esp32s3-aleksei/firmware.bin
-          ./code/.pio/build/esp32s3-aleksei/partitions.bin
-          ./code/.pio/build/esp32s3-aleksei/bootloader.bin
-        key: generated-files-${{ github.run_id }}
-        restore-keys: generated-files
 
     - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
         name: build-binaries
         path: out
-    
-    - name: Prepare manual_setup_s3
+
+    - name: Update generated-files cache on every commit
+      uses: actions/cache@v4
+      with:
+        path: |
+          ./code/.pio/build/esp32cam/firmware.bin
+          ./code/.pio/build/esp32cam/partitions.bin
+          ./code/.pio/build/esp32cam/bootloader.bin
+          ./code/.pio/build/esp32s3-aleksei/firmware.bin
+          ./code/.pio/build/esp32s3-aleksei/partitions.bin
+          ./code/.pio/build/esp32s3-aleksei/bootloader.bin
+          ./html/*
+          ./demo/*
+        key: generated-files-${{ github.run_id }}
+        restore-keys: generated-files
+
+    - name: Update manual_setup_s3 cache on every commit
+      uses: actions/cache@v4
+      with:
+        path: manual_setup_s3
+        key: manual_setup_s3-${{ github.run_id }}
+        restore-keys: manual_setup_s3
+
+    - name: Set Variables
+      id: vars
       run: |
-        set -euo pipefail
+        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "branch=$(echo ${{ github.ref_name }} | tr / __)" >> $GITHUB_OUTPUT
+
+    - name: Prepare manual_setup_s3__*.zip artifact
+      run: |
         rm -rf manual_setup_s3
         mkdir -p manual_setup_s3
+        rm -rf manual_setup_s3/*.zip
+        rm -rf release
+        mkdir -p release
+        # copy S3 builds to manual_setup_s3 folder
         cp -f ./out/s3/firmware.bin   manual_setup_s3/firmware.bin
         cp -f ./out/s3/bootloader.bin manual_setup_s3/bootloader.bin
         cp -f ./out/s3/partitions.bin manual_setup_s3/partitions.bin
-    
-        # Build sd-card.zip from processed html/demo (same as ESP32), then rename INI
-        rm -rf sd-tmp
-        cp -r sd-card sd-tmp
-        rm -rf sd-tmp/html sd-tmp/demo
-        cp -r html sd-tmp/
-        cp -r demo sd-tmp/
-        rm -f sd-tmp/Readme.md
-        [ -f sd-tmp/wlan.ini ] && mv sd-tmp/wlan.ini sd-tmp/lan.ini
-        rm -rf sd-tmp/html/param-tooltips 2>/dev/null || true
-        (cd sd-tmp; zip -r ../manual_setup_s3/sd-card.zip * )
-        rm -rf sd-tmp
 
-    - name: Upload manual_setup_s3
+        # rebuild SD content from processed html/demo and rename wlan.ini -> lan.ini
+        rm -rf ./sd-card/html
+        rm -rf ./sd-card/demo
+        cp -r ./html ./sd-card/      # Overwrite with preprocessed files
+        cp -r ./demo ./sd-card/
+        [ -f ./sd-card/wlan.ini ] && mv ./sd-card/wlan.ini ./sd-card/lan.ini
+        rm -f ./sd-card/Readme.md
+        (cd sd-card; rm -rf html/param-tooltips; zip -r ../manual_setup_s3/sd-card.zip *; cd ..)
+        cd ./manual_setup_s3
+
+    - name: Upload manual_setup_s3.zip artifact (Firmware + Bootloader + Partitions + SD)
       uses: actions/upload-artifact@v4
       with:
         name: manual_setup_s3
