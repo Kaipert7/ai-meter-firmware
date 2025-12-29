@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <math.h>
+#include <mutex>
 
 #ifdef __cplusplus
 extern "C"
@@ -32,6 +33,10 @@ extern "C"
 
 #include "esp_vfs_fat.h"
 #include "../sdmmc_common.h"
+
+#ifdef CONFIG_SOC_TEMP_SENSOR_SUPPORTED
+#include "driver/temperature_sensor.h"
+#endif
 
 static const char *TAG = "HELPER";
 
@@ -643,14 +648,31 @@ string toLower(string in)
 	return in;
 }
 
-// CPU Temp
+// SOC temperature sensor
+#if defined(CONFIG_SOC_TEMP_SENSOR_SUPPORTED)
+static temperature_sensor_handle_t socTempSensor = NULL;
+static std::mutex socTempSensorMutex;
 
-#if defined(BOARD_ESP32_S3_ALEKSEI) // ESP32s3 hat die Funktion nicht
+void initTemperatureSensor()
+{
+    temperature_sensor_config_t socTempSensorConfig = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
+    temperature_sensor_install(&socTempSensorConfig, &socTempSensor);
+    temperature_sensor_enable(socTempSensor);
+}
+
 float temperatureRead()
 {
+	std::unique_lock l(socTempSensorMutex);
+
+	float socTemperature;
+	if (temperature_sensor_get_celsius(socTempSensor, &socTemperature) == ESP_OK)
+		return socTemperature;
+
 	return 0.0;
 }
 #else
+void initTemperatureSensor() {}
+
 extern "C" uint8_t temprature_sens_read();
 float temperatureRead()
 {

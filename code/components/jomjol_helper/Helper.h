@@ -40,6 +40,7 @@ int removeFolder(const char* folderPath, const char* logTag);
 string toLower(string in);
 string toUpper(string in);
 
+void initTemperatureSensor();
 float temperatureRead();
 
 std::string intToHexString(int _valueInt);
