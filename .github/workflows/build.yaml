@@ -181,7 +181,7 @@ jobs:
       run: |
         rm -rf ./update
         mkdir -p ./update
-        cp ./out/esp32/firmware.bin update/firmware.bin
+        cp ./out/s3/firmware.bin update/firmware.bin
 
     - name: Add Web UI to update
       run: cp -r ./html ./update/

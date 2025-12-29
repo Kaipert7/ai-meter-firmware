@@ -137,9 +137,6 @@ int lan_init(void)
     gpio_set_direction(ETH_ENABLE, GPIO_MODE_OUTPUT);
     gpio_set_level(ETH_ENABLE, 1);
 
-    gpio_set_direction(ETH_INT, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(ETH_INT, GPIO_PULLUP_ONLY);
-
     esp_log_level_set("netif", ESP_LOG_DEBUG);
     LogFile.WriteToFile(ESP_LOG_INFO, TAG, "SPI init");
     // 1) SPI bus init
@@ -159,6 +156,8 @@ int lan_init(void)
         // the rest zero-initialized
     };
 
+    gpio_install_isr_service(ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM);
+
     eth_w5500_config_t w5500_config = ETH_W5500_DEFAULT_CONFIG(W5500_SPI_HOST, &devcfg);
     w5500_config.int_gpio_num = ETH_INT;
     // 4) Standard MAC/PHY config
@@ -167,6 +166,7 @@ int lan_init(void)
 
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
     phy_config.phy_addr = 1; // typical W5500
+    phy_config.reset_gpio_num = -1;
     esp_eth_phy_t *phy = esp_eth_phy_new_w5500(&phy_config);
 
     esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(mac, phy);
