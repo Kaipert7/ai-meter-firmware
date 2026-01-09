@@ -43,7 +43,7 @@ extern "C" {
 #include "server_GPIO.h"
 
 #include "Helper.h"
-#include "miniz.h"
+#include "miniz/miniz.h"
 #include "basic_auth.h"
 
 static const char *TAG = "OTA FILE";
