@@ -5,7 +5,6 @@ import os
 import glob
 import markdown
 
-
 parameterDocsFolder = "../../param-docs/parameter-pages"
 docsMainFolder = "../../sd-card/html"
 configPageTemplate = "edit_config_template.html"
@@ -13,19 +12,16 @@ configPage = "edit_config.html"
 refImagePage = "edit_reference.html"
 
 htmlTooltipPrefix = """
-    <div class="rst-content"><div class="tooltip"><img src="help.png" width="32px"><span class="tooltiptext">
+    <div class="rst-content"><div><img src="help.png" width="32px"><span class="tooltiptext">
 """
-
 
 htmlTooltipSuffix = """
     </span></div></div>
 """
 
-
 os.system("cp " + docsMainFolder + "/" + configPageTemplate + " " + docsMainFolder + "/" + configPage)
 
 folders = sorted( filter( os.path.isdir, glob.glob(parameterDocsFolder + '/*') ) )
-
 
 def generateHtmlTooltip(section, parameter, markdownFile):
     # print(section, parameter, markdownFile)
@@ -55,14 +51,14 @@ def generateHtmlTooltip(section, parameter, markdownFile):
     # Add the tooltip to the config page
     with open(docsMainFolder + "/" + configPage, 'r') as configPageHandle:
         configPageContent = configPageHandle.read()
-    configPageContent = configPageContent.replace("<td>$TOOLTIP_" + section + "_" + parameter + "</td>", "<td>" + htmlTooltip + "</td>")
+    configPageContent = configPageContent.replace("<td>$TOOLTIP_" + section + "_" + parameter + "</td>", "<td class=\"tooltip\" style=\"display:none;\">" + htmlTooltip + "</td>")
     with open(docsMainFolder + "/" + configPage, 'w') as configPageHandle:
         configPageHandle.write(configPageContent)
 
     # Add the tooltip to the reference image page
     with open(docsMainFolder + "/" + refImagePage, 'r') as refImagePageHandle:
         refImagePageContent = refImagePageHandle.read()
-    refImagePageContent = refImagePageContent.replace("<td>$TOOLTIP_" + section + "_" + parameter + "</td>", "<td>" + htmlTooltip + "</td>")
+    refImagePageContent = refImagePageContent.replace("<td>$TOOLTIP_" + section + "_" + parameter + "</td>", "<td class=\"tooltip\" style=\"display:none;\">" + htmlTooltip + "</td>")
     with open(docsMainFolder + "/" + refImagePage, 'w') as refImagePageHandle:
         refImagePageHandle.write(refImagePageContent)
 

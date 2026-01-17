@@ -1,20 +1,21 @@
 #pragma once
 
-#ifndef SERVEROTA_H
-#define SERVEROTA_H
+#ifndef SERVER_OTA_H
+#define SERVER_OTA_H
 
-#include <esp_log.h>
-
-#include <esp_http_server.h>
+#include "defines.h"
 
 #include <string>
+#include <esp_log.h>
+#include <esp_http_server.h>
 
+void CheckOTAUpdateStatus(void);
+bool CheckOTAUpdateAvailability(void);
 
-void register_server_ota_sdcard_uri(httpd_handle_t server);
-void CheckOTAUpdate();
-void doReboot();
-void doRebootOTA();
-void hard_restart();
-void CheckUpdate();
+void doReboot(void);
+void doRebootOTA(void);
+void hard_restart(void);
 
-#endif //SERVEROTA_H
+void ota_register_uri(httpd_handle_t server);
+
+#endif // SERVEROTA_H

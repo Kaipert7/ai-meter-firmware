@@ -7,7 +7,6 @@
 var domainname_for_testing = "";
 //var domainname_for_testing = "192.168.1.151";
 
-
 /* Returns the domainname with prepended protocol.
 Eg. http://watermeter.fritz.box or http://192.168.1.5 */
 function getDomainname(){
@@ -37,11 +36,9 @@ function UpdatePage(_dosession = true){
         window.location = zw; 
     }
 }
-
-        
+ 
 function LoadHostname() {
     _domainname = getDomainname(); 
-
 
     var xhttp = new XMLHttpRequest();
     xhttp.addEventListener('load', function(event) {
@@ -54,20 +51,15 @@ function LoadHostname() {
                 console.warn(request.statusText, request.responseText);
         }
     });
-
-//     var xhttp = new XMLHttpRequest();
     try {
             url = _domainname + '/info?type=Hostname';     
             xhttp.open("GET", url, true);
             xhttp.send();
-
     }
     catch (error)
     {
-//               alert("Loading Hostname failed");
     }
 }
-
 
 var fwVersion = "";
 var webUiVersion = "";
@@ -125,7 +117,6 @@ function LoadWebUiVersion() {
         webUiVersion = "NaN";
     }
 }
-
 
 function compareVersions() {
     if (fwVersion == "" || webUiVersion == "") {

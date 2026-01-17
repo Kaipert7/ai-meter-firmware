@@ -3,25 +3,21 @@
 #ifndef CLASSFLOWALIGNMENT_H
 #define CLASSFLOWALIGNMENT_H
 
+#include <string>
+
 #include "ClassFlow.h"
 #include "Helper.h"
 #include "CAlignAndCutImage.h"
 #include "CFindTemplate.h"
-
-#include <string>
 
 using namespace std;
 
 class ClassFlowAlignment : public ClassFlow
 {
 protected:
-    float initialrotate;
-    bool initialflip;
-    bool use_antialiasing;
     RefInfo References[2];
     int anz_ref;
-    string namerawimage;
-    bool SaveAllFiles;
+    std::string namerawimage;
     CAlignAndCutImage *AlignAndCutImage;
     std::string FileStoreRefAlignment;
     float SAD_criteria;
@@ -40,12 +36,12 @@ public:
 
     CAlignAndCutImage *GetAlignAndCutImage() { return AlignAndCutImage; };
 
-    void DrawRef(CImageBasis *_zw);
+    void DrawRef(CImageBasis *Image);
 
-    bool ReadParameter(FILE *pfile, string &aktparamgraph);
-    bool doFlow(string time);
-    string getHTMLSingleStep(string host);
-    string name() { return "ClassFlowAlignment"; };
+    bool ReadParameter(FILE *pfile, std::string &aktparamgraph);
+    bool doFlow(std::string time);
+    std::string getHTMLSingleStep(std::string host);
+    std::string name() { return "ClassFlowAlignment"; };
 };
 
 #endif // CLASSFLOWALIGNMENT_H

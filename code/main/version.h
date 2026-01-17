@@ -55,7 +55,7 @@ std::string getFwVersion(void) {
 std::string getHTMLversion(void){
     char buf[100]="?\0";
     FILE* pFile;
-    string fn = FormatFileName("/sdcard/html/version.txt");
+    string fn = format_filename("/sdcard/html/version.txt");
     pFile = fopen(fn.c_str(), "r");
 
     if (pFile == NULL)
@@ -73,7 +73,7 @@ std::string getHTMLversion(void){
 std::string getHTMLcommit(void){
     char buf[100]="?\0";
     FILE* pFile;
-    string fn = FormatFileName("/sdcard/html/version.txt");
+    string fn = format_filename("/sdcard/html/version.txt");
     pFile = fopen(fn.c_str(), "r");
 
     if (pFile == NULL)

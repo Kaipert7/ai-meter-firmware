@@ -8,14 +8,12 @@ import os
 import configparser
 import urllib.request
 
-
 configFileUrl = "https://raw.githubusercontent.com/jomjol/AI-on-the-edge-device/rolling/sd-card/config/config.ini"
 
 parameterDocsFolder = "parameter-pages"
 parameterTemplateFile = "./templates/parameter.md"
 expertParameterListFile = "./expert-params.txt"
 hiddenInUiParameterListFile = "./hidden-in-ui.txt"
-
 
 # Fetch default config file from URL
 print("Fetching %r..." % configFileUrl)
@@ -39,7 +37,6 @@ with open(expertParameterListFile) as f:
 with open(hiddenInUiParameterListFile) as f:
     hiddenInUiParameters = f.read().splitlines()
 
-
 config = configparser.ConfigParser(allow_no_value=True)
 config.optionxform = str # Make it case-insensitive
 config.read_string(content)
@@ -50,7 +47,6 @@ if not os.path.exists(parameterDocsFolder):
 
 with open(parameterTemplateFile, 'r') as parameterTemplateFileHandle:
     parameterTemplate = parameterTemplateFileHandle.read()
-
 
 print("For each section/parameter, check if there is already a documentation page in the folder %r..." % (os.getcwd() + "/" + parameterDocsFolder))
 for section in config:
