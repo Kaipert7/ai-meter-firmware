@@ -3,17 +3,17 @@
 #ifndef CLASSFFLOWTAKEIMAGE_H
 #define CLASSFFLOWTAKEIMAGE_H
 
+#include <string>
+#include "defines.h"
+
 #include "ClassFlowImage.h"
 #include "ClassControllCamera.h"
-#include "../../include/defines.h"
-
-#include <string>
 
 class ClassFlowTakeImage : public ClassFlowImage
 {
 protected:
     time_t TimeImageTaken;
-    string namerawimage;
+    std::string NameRawImage;
 
     esp_err_t camera_capture(void);
     void takePictureWithFlash(int flash_duration);
@@ -25,11 +25,11 @@ public:
 
     ClassFlowTakeImage(std::vector<ClassFlow *> *lfc);
 
-    bool ReadParameter(FILE *pfile, string &aktparamgraph);
-    bool doFlow(string time);
-    string getHTMLSingleStep(string host);
+    bool ReadParameter(FILE *pFile, std::string &aktparamgraph);
+    bool doFlow(std::string time);
+    std::string getHTMLSingleStep(std::string host);
     time_t getTimeImageTaken(void);
-    string name() { return "ClassFlowTakeImage"; };
+    std::string name() { return "ClassFlowTakeImage"; };
 
     ImageData *SendRawImage(void);
     esp_err_t SendRawJPG(httpd_req_t *req);

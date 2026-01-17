@@ -1,7 +1,7 @@
 FILE(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.*)
 
 idf_component_register(SRCS ${app_sources}
-                    INCLUDE_DIRS "."
-                    REQUIRES esp_netif esp-tflite-micro jomjol_logfile jomjol_configfile)
+                    INCLUDE_DIRS "." "../../include"
+                    REQUIRES esp_netif esp-tflite-micro jomjol_logfile jomjol_flowcontroll jomjol_helper)
 
 

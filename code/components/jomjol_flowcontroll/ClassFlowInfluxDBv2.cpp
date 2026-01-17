@@ -1,61 +1,62 @@
-#ifdef ENABLE_INFLUXDB
+#include "defines.h"
+
 #include <sstream>
+#include <time.h>
+
 #include "ClassFlowInfluxDBv2.h"
+
 #include "Helper.h"
-#include "connect_wlan.h"
+#include "connect_wifi_sta.h"
 
 #include "time_sntp.h"
 #include "interface_influxdb.h"
 
 #include "ClassFlowPostProcessing.h"
 #include "esp_log.h"
-#include "../../include/defines.h"
-
 #include "ClassLogFile.h"
 
-#include <time.h>
+static const char *TAG = "INFLUXDBV2";
 
-static const char* TAG = "INFLUXDBV2";
+influxDBv2_controll_config_t influxDBv2_controll_config;
 
 void ClassFlowInfluxDBv2::SetInitialParameter(void)
 {
-    uri = "";
-    bucket = "";
-    dborg = "";  
-    dbtoken = "";  
-//    dbfield = "";
+    influxDBv2_controll_config.enabled = false;
+    influxDBv2_controll_config.uri = "";
+    influxDBv2_controll_config.bucket = "";
+    influxDBv2_controll_config.dborg = "";
+    influxDBv2_controll_config.dbtoken = "";
+    influxDBv2_controll_config.oldValue = "";
 
-    OldValue = "";
-    flowpostprocessing = NULL;  
+    flowpostprocessing = NULL;
     previousElement = NULL;
-    ListFlowControll = NULL; 
+    ListFlowControll = NULL;
+
     disabled = false;
-    InfluxDBenable = false;
-}       
+}
 
 ClassFlowInfluxDBv2::ClassFlowInfluxDBv2()
 {
     SetInitialParameter();
 }
 
-ClassFlowInfluxDBv2::ClassFlowInfluxDBv2(std::vector<ClassFlow*>* lfc)
+ClassFlowInfluxDBv2::ClassFlowInfluxDBv2(std::vector<ClassFlow *> *lfc)
 {
     SetInitialParameter();
-
     ListFlowControll = lfc;
+
     for (int i = 0; i < ListFlowControll->size(); ++i)
     {
         if (((*ListFlowControll)[i])->name().compare("ClassFlowPostProcessing") == 0)
         {
-            flowpostprocessing = (ClassFlowPostProcessing*) (*ListFlowControll)[i];
+            flowpostprocessing = (ClassFlowPostProcessing *)(*ListFlowControll)[i];
         }
     }
 }
 
-ClassFlowInfluxDBv2::ClassFlowInfluxDBv2(std::vector<ClassFlow*>* lfc, ClassFlow *_prev)
+ClassFlowInfluxDBv2::ClassFlowInfluxDBv2(std::vector<ClassFlow *> *lfc, ClassFlow *_prev)
 {
     SetInitialParameter();
-
     previousElement = _prev;
     ListFlowControll = lfc;
 
@@ -63,190 +64,182 @@ ClassFlowInfluxDBv2::ClassFlowInfluxDBv2(std::vector<ClassFlow*>* lfc, ClassFlow
     {
         if (((*ListFlowControll)[i])->name().compare("ClassFlowPostProcessing") == 0)
         {
-            flowpostprocessing = (ClassFlowPostProcessing*) (*ListFlowControll)[i];
+            flowpostprocessing = (ClassFlowPostProcessing *)(*ListFlowControll)[i];
         }
     }
 }
 
-
-bool ClassFlowInfluxDBv2::ReadParameter(FILE* pfile, string& aktparamgraph)
+bool ClassFlowInfluxDBv2::ReadParameter(FILE *pFile, std::string &aktparamgraph)
 {
-    std::vector<string> splitted;
-
-    aktparamgraph = trim(aktparamgraph);
-    printf("akt param: %s\n", aktparamgraph.c_str());
-
+    aktparamgraph = trim_string_left_right(aktparamgraph);
     if (aktparamgraph.size() == 0)
-        if (!this->GetNextParagraph(pfile, aktparamgraph))
-            return false;
-
-    if (toUpper(aktparamgraph).compare("[INFLUXDBV2]") != 0) 
-        return false;
-
-    while (this->getNextLine(pfile, &aktparamgraph) && !this->isNewParagraph(aktparamgraph))
     {
-//        ESP_LOGD(TAG, "while loop reading line: %s", aktparamgraph.c_str());
-        splitted = ZerlegeZeile(aktparamgraph);
-        std::string _param = GetParameterName(splitted[0]);
-
-        if ((toUpper(_param) == "ORG") && (splitted.size() > 1))
+        if (!GetNextParagraph(pFile, aktparamgraph))
         {
-            this->dborg = splitted[1];
-        }  
-        if ((toUpper(_param) == "TOKEN") && (splitted.size() > 1))
-        {
-            this->dbtoken = splitted[1];
-        }               
-        if ((toUpper(_param) == "URI") && (splitted.size() > 1))
-        {
-            this->uri = splitted[1];
-        }
-        if (((toUpper(_param) == "FIELD")) && (splitted.size() > 1))
-        {
-            handleFieldname(splitted[0], splitted[1]);
-        }
-        if (((toUpper(_param) == "MEASUREMENT")) && (splitted.size() > 1))
-        {
-            handleMeasurement(splitted[0], splitted[1]);
-        }
-        if (((toUpper(splitted[0]) == "BUCKET")) && (splitted.size() > 1))
-        {
-            this->bucket = splitted[1];
+            return false;
         }
     }
 
-    printf("uri:         %s\n", uri.c_str());
-    printf("org:         %s\n", dborg.c_str());
-    printf("token:       %s\n", dbtoken.c_str());
-
-    if ((uri.length() > 0) && (bucket.length() > 0) && (dbtoken.length() > 0) && (dborg.length() > 0)) 
-    { 
-        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Init InfluxDB with uri: " + uri + ", org: " + dborg + ", token: *****");
-//        printf("vor V2 Init\n");
-
-
-////////////////////////////////////////// NEW ////////////////////////////////////////////
-//        InfluxDB_V2_Init(uri, bucket, dborg, dbtoken);
-//        InfluxDB_V2_Init(uri, bucket, dborg, dbtoken); 
-        influxdb.InfluxDBInitV2(uri, bucket, dborg, dbtoken);
-////////////////////////////////////////// NEW ////////////////////////////////////////////
-
-//        printf("nach V2 Init\n");
-        InfluxDBenable = true;
-    } else {
-        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "InfluxDBv2 (Verion2 !!!) init skipped as we are missing some parameters");
+    if ((to_upper(aktparamgraph).compare("[INFLUXDBV2]") != 0) && (to_upper(aktparamgraph).compare(";[INFLUXDBV2]") != 0))
+    {
+        return false;
     }
-   
+
+    if (aktparamgraph[0] == ';')
+    {
+        influxDBv2_controll_config.enabled = false;
+        while (getNextLine(pFile, &aktparamgraph) && !isNewParagraph(aktparamgraph));
+        ESP_LOGD(TAG, "InfluxDBv2 is disabled!");
+
+        return true;
+    }
+
+    std::vector<std::string> splitted;
+
+    while (getNextLine(pFile, &aktparamgraph) && !isNewParagraph(aktparamgraph))
+    {
+        splitted = split_line(aktparamgraph);
+
+        if (splitted.size() > 1)
+        {
+            std::string _param = to_upper(GetParameterName(splitted[0]));
+
+            if (_param == "ORG")
+            {
+                influxDBv2_controll_config.dborg = splitted[1];
+            }
+            else if (_param == "TOKEN")
+            {
+                influxDBv2_controll_config.dbtoken = splitted[1];
+            }
+            else if (_param == "URI")
+            {
+                influxDBv2_controll_config.uri = splitted[1];
+            }
+            else if (_param == "FIELD")
+            {
+                handleFieldname(splitted[0], splitted[1]);
+            }
+            else if (_param == "MEASUREMENT")
+            {
+                handleMeasurement(splitted[0], splitted[1]);
+            }
+            else if (_param == "BUCKET")
+            {
+                influxDBv2_controll_config.bucket = splitted[1];
+            }
+        }
+    }
+
+    if ((influxDBv2_controll_config.uri.length() > 0) && (influxDBv2_controll_config.bucket.length() > 0) && (influxDBv2_controll_config.dbtoken.length() > 0) && (influxDBv2_controll_config.dborg.length() > 0))
+    {
+        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Init InfluxDBv2 with uri: " + influxDBv2_controll_config.uri + ", org: " + influxDBv2_controll_config.dborg + ", token: *****");
+        influxDB.InfluxDBInitV2(influxDBv2_controll_config.uri, influxDBv2_controll_config.bucket, influxDBv2_controll_config.dborg, influxDBv2_controll_config.dbtoken);
+        influxDBv2_controll_config.enabled = true;
+    }
+    else
+    {
+        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "InfluxDBv2 init skipped as we are missing some parameters");
+    }
+
     return true;
 }
 
-/*
-string ClassFlowInfluxDBv2::GetInfluxDBMeasurement()
+bool ClassFlowInfluxDBv2::doFlow(std::string temp_time)
 {
-    return measurement;
-}
-*/
-
-void ClassFlowInfluxDBv2::handleFieldname(string _decsep, string _value)
-{
-    string _digit, _decpos;
-    int _pospunkt = _decsep.find_first_of(".");
-//    ESP_LOGD(TAG, "Name: %s, Pospunkt: %d", _decsep.c_str(), _pospunkt);
-    if (_pospunkt > -1)
-        _digit = _decsep.substr(0, _pospunkt);
-    else
-        _digit = "default";
-    for (int j = 0; j < flowpostprocessing->NUMBERS.size(); ++j)
+    if (!influxDBv2_controll_config.enabled)
     {
-        if (_digit == "default")                        //  Set to default first (if nothing else is set)
-        {
-            flowpostprocessing->NUMBERS[j]->FieldV2 = _value;
-        }
-        if (flowpostprocessing->NUMBERS[j]->name == _digit)
-        {
-            flowpostprocessing->NUMBERS[j]->FieldV2 = _value;
-        }
-    }
-}
-
-void ClassFlowInfluxDBv2::handleMeasurement(string _decsep, string _value)
-{
-    string _digit, _decpos;
-    int _pospunkt = _decsep.find_first_of(".");
-//    ESP_LOGD(TAG, "Name: %s, Pospunkt: %d", _decsep.c_str(), _pospunkt);
-    if (_pospunkt > -1)
-        _digit = _decsep.substr(0, _pospunkt);
-    else
-        _digit = "default";
-    for (int j = 0; j < flowpostprocessing->NUMBERS.size(); ++j)
-    {
-        if (_digit == "default")                        //  Set to default first (if nothing else is set)
-        {
-            flowpostprocessing->NUMBERS[j]->MeasurementV2 = _value;
-        }
-        if (flowpostprocessing->NUMBERS[j]->name == _digit)
-        {
-            flowpostprocessing->NUMBERS[j]->MeasurementV2 = _value;
-        }
-    }
-}
-
-
-bool ClassFlowInfluxDBv2::doFlow(string zwtime)
-{
-    if (!InfluxDBenable)
         return true;
+    }
 
-    std::string measurement;
-    std::string result;
-    std::string resulterror = "";
-    std::string resultraw = "";
-    std::string resultrate = "";
-    std::string resulttimestamp = "";
-    long int resulttimeutc = 0;
-    string zw = "";
-    string namenumber = "";
-
+    std::string measurement = "";
+    std::string result = "";
+    long int result_timeutc = 0;
+    std::string name_number = "";
 
     if (flowpostprocessing)
     {
-        std::vector<NumberPost*>* NUMBERS = flowpostprocessing->GetNumbers();
+        std::vector<NumberPost *> *NUMBERS = flowpostprocessing->GetNumbers();
 
         for (int i = 0; i < (*NUMBERS).size(); ++i)
         {
             measurement = (*NUMBERS)[i]->MeasurementV2;
-            result =  (*NUMBERS)[i]->ReturnValue;
-            resultraw =  (*NUMBERS)[i]->ReturnRawValue;
-            resulterror = (*NUMBERS)[i]->ErrorMessageText;
-            resultrate = (*NUMBERS)[i]->ReturnRateValue;
-            resulttimestamp = (*NUMBERS)[i]->timeStamp;
-            resulttimeutc = (*NUMBERS)[i]->timeStampTimeUTC;
-
+            result = (*NUMBERS)[i]->ReturnValue;
+            result_timeutc = (*NUMBERS)[i]->timeStampTimeUTC;
 
             if ((*NUMBERS)[i]->FieldV2.length() > 0)
             {
-                namenumber = (*NUMBERS)[i]->FieldV2;
+                name_number = (*NUMBERS)[i]->FieldV2;
             }
             else
             {
-                namenumber = (*NUMBERS)[i]->name;
-                if (namenumber == "default")
-                    namenumber = "value";
+                name_number = (*NUMBERS)[i]->name;
+                if (name_number == "default")
+                {
+                    name_number = "value";
+                }
                 else
-                    namenumber = namenumber + "/value";
+                {
+                    name_number = name_number + "/value";
+                }
             }
-            
-            printf("vor sende Influx_DB_V2 - namenumber. %s, result: %s, timestampt: %s", namenumber.c_str(), result.c_str(), resulttimestamp.c_str());
 
-            if (result.length() > 0)   
-                influxdb.InfluxDBPublish(measurement, namenumber, result, resulttimeutc);
-//                InfluxDB_V2_Publish(measurement, namenumber, result, resulttimeutc);
+            if (result.length() > 0)
+            {
+                influxDB.InfluxDBPublish(measurement, name_number, result, result_timeutc);
+            }
         }
     }
-   
-    OldValue = result;
-    
+
+    influxDBv2_controll_config.oldValue = result;
+
     return true;
 }
 
-#endif //ENABLE_INFLUXDB
+void ClassFlowInfluxDBv2::handleFieldname(std::string _decsep, std::string _value)
+{
+    std::string _digit;
+    int _pospunkt = _decsep.find_first_of(".");
+
+    if (_pospunkt > -1)
+    {
+        _digit = _decsep.substr(0, _pospunkt);
+    }
+    else
+    {
+        _digit = "default";
+    }
+
+    for (int j = 0; j < flowpostprocessing->NUMBERS.size(); ++j)
+    {
+        //  Set to default first (if nothing else is set)
+        if ((_digit == "default") || (flowpostprocessing->NUMBERS[j]->name == _digit))
+        {
+            flowpostprocessing->NUMBERS[j]->FieldV2 = _value;
+        }
+    }
+}
+
+void ClassFlowInfluxDBv2::handleMeasurement(std::string _decsep, std::string _value)
+{
+    std::string _digit;
+    int _pospunkt = _decsep.find_first_of(".");
+
+    if (_pospunkt > -1)
+    {
+        _digit = _decsep.substr(0, _pospunkt);
+    }
+    else
+    {
+        _digit = "default";
+    }
+
+    for (int j = 0; j < flowpostprocessing->NUMBERS.size(); ++j)
+    {
+        //  Set to default first (if nothing else is set)
+        if ((_digit == "default") || (flowpostprocessing->NUMBERS[j]->name == _digit))
+        {
+            flowpostprocessing->NUMBERS[j]->MeasurementV2 = _value;
+        }
+    }
+}

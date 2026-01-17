@@ -18,36 +18,35 @@ struct HTMLInfo
 	CImageBasis *image = NULL;
 	CImageBasis *image_org = NULL;
 	std::string filename;
-	std::string filename_org;	
+	std::string filename_org;
 };
-
 
 class ClassFlow
 {
 protected:
-	bool isNewParagraph(string input);
-	bool GetNextParagraph(FILE* pfile, string& aktparamgraph);
-	bool getNextLine(FILE* pfile, string* rt);
-
-	std::vector<ClassFlow*>* ListFlowControll;
+	std::vector<ClassFlow *> *ListFlowControll;
 	ClassFlow *previousElement;
 
 	virtual void SetInitialParameter(void);
-
 	std::string GetParameterName(std::string _input);
 
 	bool disabled;
 
 public:
 	ClassFlow(void);
-	ClassFlow(std::vector<ClassFlow*> * lfc);
-	ClassFlow(std::vector<ClassFlow*> * lfc, ClassFlow *_prev);	
-	
-	virtual bool ReadParameter(FILE* pfile, string &aktparamgraph);
-	virtual bool doFlow(string time);
-	virtual string getHTMLSingleStep(string host);
-	virtual string name(){return "ClassFlow";};
+	ClassFlow(std::vector<ClassFlow *> *lfc);
+	ClassFlow(std::vector<ClassFlow *> *lfc, ClassFlow *_prev);
 
+	bool isNewParagraph(std::string input);
+	bool GetNextParagraph(FILE *pFile, std::string &aktparamgraph);
+	// bool GetNextParagraph(FILE *pFile, std::string &aktparamgraph, bool &disabled, bool &eof);
+	bool getNextLine(FILE *pFile, std::string *rt);
+	// bool getNextLine(FILE *pFile, std::string *rt, bool &disabled, bool &eof);
+
+	virtual bool ReadParameter(FILE *pFile, std::string &aktparamgraph);
+	virtual bool doFlow(std::string time);
+	virtual std::string getHTMLSingleStep(std::string host);
+	virtual std::string name() { return "ClassFlow"; };
 };
 
-#endif //CLASSFLOW_H
+#endif // CLASSFLOW_H

@@ -6,6 +6,84 @@ var ref = new Array(2);
 var NUMBERS = new Array(0);
 var REFERENCES = new Array(0);
 
+var domainname_for_testing = "";
+
+/* Returns the domainname with prepended protocol.
+Eg. http://watermeter.fritz.box or http://192.168.1.5 */
+function getDomainname(){
+    var host = window.location.hostname;
+    if (domainname_for_testing != "") {
+        console.log("Using pre-defined domainname for testing: " + domainname_for_testing);
+        domainname = "http://" + domainname_for_testing;
+    }
+    else
+    {
+        domainname = window.location.protocol + "//" + host;
+        if (window.location.port != "") {
+            domainname = domainname + ":" + window.location.port;
+        }
+    }
+
+    return domainname;
+}
+
+function getConfig() {
+    return config_gesamt;
+}
+
+function loadConfig(_domainname) {
+	config_gesamt = "";
+
+	var url = _domainname + "/fileserver/config/config.ini";
+	
+    var xhttp = new XMLHttpRequest();
+    xhttp.addEventListener('load', function(event) {
+        if (xhttp.status >= 200 && xhttp.status < 300) {
+            config_gesamt = xhttp.responseText;
+        } 
+        else {
+            console.warn('Response status: ${response.status}');
+        }
+    });
+    try {     
+        xhttp.open("GET", url, false);
+        xhttp.send();
+    } catch (error) {}
+	
+	return true;
+}
+
+function loadConfig1(_domainname) {
+    var xhttp = new XMLHttpRequest();
+    
+	try {
+        url = _domainname + '/fileserver/config/config.ini';     
+        xhttp.open("GET", url, false);
+        xhttp.send();
+        config_gesamt = xhttp.responseText;
+    } catch (error) {}
+    
+	return true;
+}
+
+function SaveConfigToServer(_domainname){
+    // leere Zeilen am Ende löschen
+    var _config_split_length = config_split.length - 1;
+	 
+    while (config_split[_config_split_length] == "") {
+        config_split.pop();
+    }
+
+    var _config_gesamt = "";
+	 
+    for (var i = 0; i < config_split.length; ++i) {
+        _config_gesamt = _config_gesamt + config_split[i] + "\n";
+    } 
+
+    FileDeleteOnServer("/config/config.ini", _domainname);
+    FileSendContent(_config_gesamt, "/config/config.ini", _domainname);          
+}
+
 function getNUMBERSList() {
     _domainname = getDomainname(); 
     var namenumberslist = "";
@@ -99,50 +177,54 @@ function ParseConfig() {
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "RawImagesLocation");
-    ParamAddValue(param, catname, "RawImagesRetention");
-    ParamAddValue(param, catname, "WaitBeforeTakingPicture");
-    ParamAddValue(param, catname, "CamGainceiling");		// Image gain (GAINCEILING_x2, x4, x8, x16, x32, x64 or x128)
-    ParamAddValue(param, catname, "CamQuality");    		// 0 - 63
-    ParamAddValue(param, catname, "CamBrightness"); 		// (-2 to 2) - set brightness
-    ParamAddValue(param, catname, "CamContrast");   		//-2 - 2
-    ParamAddValue(param, catname, "CamSaturation"); 		//-2 - 2
-    ParamAddValue(param, catname, "CamSharpness");  		//-2 - 2
-    ParamAddValue(param, catname, "CamAutoSharpness");  	// (1 or 0)	
-    ParamAddValue(param, catname, "CamSpecialEffect"); 	// 0 - 6
-    ParamAddValue(param, catname, "CamWbMode");        	// 0 to 4 - if awb_gain enabled (0 - Auto, 1 - Sunny, 2 - Cloudy, 3 - Office, 4 - Home)
-    ParamAddValue(param, catname, "CamAwb");           	// white balance enable (0 or 1)
-    ParamAddValue(param, catname, "CamAwbGain");       	// Auto White Balance enable (0 or 1)
-    ParamAddValue(param, catname, "CamAec");           	// auto exposure off (1 or 0)
-    ParamAddValue(param, catname, "CamAec2");          	// automatic exposure sensor  (0 or 1)
-    ParamAddValue(param, catname, "CamAeLevel");       	// auto exposure levels (-2 to 2)
-    ParamAddValue(param, catname, "CamAecValue");      	// set exposure manually  (0-1200)
-    ParamAddValue(param, catname, "CamAgc");           	// auto gain off (1 or 0)
-    ParamAddValue(param, catname, "CamAgcGain");       	// set gain manually (0 - 30)
-    ParamAddValue(param, catname, "CamBpc");           	// black pixel correction
-    ParamAddValue(param, catname, "CamWpc");           	// white pixel correction
-    ParamAddValue(param, catname, "CamRawGma");        	// (1 or 0)
-    ParamAddValue(param, catname, "CamLenc");          	// lens correction (1 or 0)
-    ParamAddValue(param, catname, "CamHmirror");       	// (0 or 1) flip horizontally
-    ParamAddValue(param, catname, "CamVflip");         	// Invert image (0 or 1)
-    ParamAddValue(param, catname, "CamDcw");           	// downsize enable (1 or 0)
-    ParamAddValue(param, catname, "CamDenoise");        // The OV2640 does not support it, OV3660 and OV5640 (0 to 8)
-    ParamAddValue(param, catname, "CamZoom");
-    ParamAddValue(param, catname, "CamZoomOffsetX");
-    ParamAddValue(param, catname, "CamZoomOffsetY");
-    ParamAddValue(param, catname, "CamZoomSize");
-    ParamAddValue(param, catname, "LEDIntensity");
-    ParamAddValue(param, catname, "Demo");
+    ParamAddValue(param, catname, "RawImagesLocation", 1, false, "/log/source");
+    ParamAddValue(param, catname, "RawImagesRetention", 1, false, "15");
+    ParamAddValue(param, catname, "SaveAllFiles", 1, false, "false");
+    ParamAddValue(param, catname, "WaitBeforeTakingPicture", 1, false, "2");
+    ParamAddValue(param, catname, "CamXclkFreqMhz", 1, false, "20");
+    ParamAddValue(param, catname, "CamGainceiling", 1, false, "x8");            // Image gain (GAINCEILING_x2, x4, x8, x16, x32, x64 or x128)
+    ParamAddValue(param, catname, "CamQuality", 1, false, "10");                // 0 - 63
+    ParamAddValue(param, catname, "CamBrightness", 1, false, "0");              // (-2 to 2) - set brightness
+    ParamAddValue(param, catname, "CamContrast", 1, false, "0");                //-2 - 2
+    ParamAddValue(param, catname, "CamSaturation", 1, false, "0");              //-2 - 2
+    ParamAddValue(param, catname, "CamSharpness", 1, false, "0");               //-2 - 2
+    ParamAddValue(param, catname, "CamAutoSharpness", 1, false, "false");       // (1 or 0)	
+    ParamAddValue(param, catname, "CamSpecialEffect", 1, false, "no_effect");   // 0 - 6
+    ParamAddValue(param, catname, "CamWbMode", 1, false, "auto");               // 0 to 4 - if awb_gain enabled (0 - Auto, 1 - Sunny, 2 - Cloudy, 3 - Office, 4 - Home)
+    ParamAddValue(param, catname, "CamAwb", 1, false, "true");                  // white balance enable (0 or 1)
+    ParamAddValue(param, catname, "CamAwbGain", 1, false, "true");              // Auto White Balance enable (0 or 1)
+    ParamAddValue(param, catname, "CamAec", 1, false, "true");                  // auto exposure off (1 or 0)
+    ParamAddValue(param, catname, "CamAec2", 1, false, "true");                 // automatic exposure sensor  (0 or 1)
+    ParamAddValue(param, catname, "CamAeLevel", 1, false, "2");                 // auto exposure levels (-2 to 2)
+    ParamAddValue(param, catname, "CamAecValue", 1, false, "600");              // set exposure manually  (0-1200)
+    ParamAddValue(param, catname, "CamAgc", 1, false, "true");                  // auto gain off (1 or 0)
+    ParamAddValue(param, catname, "CamAgcGain", 1, false, "8");                 // set gain manually (0 - 30)
+    ParamAddValue(param, catname, "CamBpc", 1, false, "true");                  // black pixel correction
+    ParamAddValue(param, catname, "CamWpc", 1, false, "true");                  // white pixel correction
+    ParamAddValue(param, catname, "CamRawGma", 1, false, "true");               // (1 or 0)
+    ParamAddValue(param, catname, "CamLenc", 1, false, "true");                 // lens correction (1 or 0)
+    ParamAddValue(param, catname, "CamHmirror", 1, false, "false");             // (0 or 1) flip horizontally
+    ParamAddValue(param, catname, "CamVflip", 1, false, "false");               // Invert image (0 or 1)
+    ParamAddValue(param, catname, "CamDcw", 1, false, "true");                  // downsize enable (1 or 0)
+    ParamAddValue(param, catname, "CamDenoise", 1, false, "0");                 // The OV2640 does not support it, OV3660 and OV5640 (0 to 8)
+    ParamAddValue(param, catname, "CamZoom", 1, false, "false");
+    ParamAddValue(param, catname, "CamZoomSize", 1, false, "0");
+    ParamAddValue(param, catname, "CamZoomOffsetX", 1, false, "0");
+    ParamAddValue(param, catname, "CamZoomOffsetY", 1, false, "0");
+    ParamAddValue(param, catname, "LEDIntensity", 1, false, "50");
+    ParamAddValue(param, catname, "Demo", 1, false, "false");
 
     var catname = "Alignment";
     category[catname] = new Object();
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "InitialRotate");
-    ParamAddValue(param, catname, "SearchFieldX");
-    ParamAddValue(param, catname, "SearchFieldY");
-    ParamAddValue(param, catname, "AlignmentAlgo");
+    ParamAddValue(param, catname, "SearchFieldX", 1, false, "20");
+    ParamAddValue(param, catname, "SearchFieldY", 1, false, "20");
+    ParamAddValue(param, catname, "SearchMaxAngle", 1, false, "45");
+    ParamAddValue(param, catname, "Antialiasing", 1, false, "true");
+    ParamAddValue(param, catname, "AlignmentAlgo", 1, false, "default");
+    ParamAddValue(param, catname, "InitialRotate", 1, false, "0");
 
     var catname = "Digits";
     category[catname] = new Object();
@@ -150,9 +232,9 @@ function ParseConfig() {
     category[catname]["found"] = false;
     param[catname] = new Object();
     ParamAddValue(param, catname, "Model");
-    ParamAddValue(param, catname, "CNNGoodThreshold", 1);
-    ParamAddValue(param, catname, "ROIImagesLocation");
-    ParamAddValue(param, catname, "ROIImagesRetention");
+    ParamAddValue(param, catname, "CNNGoodThreshold", 1, false, "0.5");
+    ParamAddValue(param, catname, "ROIImagesLocation", 1, false, "/log/digit");
+    ParamAddValue(param, catname, "ROIImagesRetention", 1, false, "3");
 
     var catname = "Analog";
     category[catname] = new Object();
@@ -160,28 +242,27 @@ function ParseConfig() {
     category[catname]["found"] = false;
     param[catname] = new Object();
     ParamAddValue(param, catname, "Model");
-    ParamAddValue(param, catname, "ROIImagesLocation");
-    ParamAddValue(param, catname, "ROIImagesRetention");
+    ParamAddValue(param, catname, "ROIImagesLocation", 1, false, "/log/analog");
+    ParamAddValue(param, catname, "ROIImagesRetention", 1, false, "3");
 
     var catname = "PostProcessing";
     category[catname] = new Object();
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
+    // ParamAddValue(param, catname, "PreValueUse", 1, true, "true");
+    ParamAddValue(param, catname, "PreValueUse", 1, false, "true");
+    ParamAddValue(param, catname, "PreValueAgeStartup", 1, false, "720");
+    ParamAddValue(param, catname, "ErrorMessage", 1, false, "true");
+    ParamAddValue(param, catname, "AllowNegativeRates", 1, true, "false");
     ParamAddValue(param, catname, "DecimalShift", 1, true, "0");
     ParamAddValue(param, catname, "AnalogToDigitTransitionStart", 1, true, "9.2");
-    ParamAddValue(param, catname, "ChangeRateThreshold", 1, true, "2");
-    // ParamAddValue(param, catname, "PreValueUse", 1, true, "true");
-    ParamAddValue(param, catname, "PreValueUse");
-    ParamAddValue(param, catname, "PreValueAgeStartup");
-    ParamAddValue(param, catname, "AllowNegativeRates", 1, true, "false");
+    ParamAddValue(param, catname, "MaxFlowRate", 1, true, "4.0");
     ParamAddValue(param, catname, "MaxRateValue", 1, true, "0.05");
     ParamAddValue(param, catname, "MaxRateType", 1, true);
+    ParamAddValue(param, catname, "ChangeRateThreshold", 1, true, "2");
     ParamAddValue(param, catname, "ExtendedResolution", 1, true, "false");
     ParamAddValue(param, catname, "IgnoreLeadingNaN", 1, true, "false");
-    // ParamAddValue(param, catname, "IgnoreAllNaN", 1, true, "false");
-    ParamAddValue(param, catname, "ErrorMessage");
-    ParamAddValue(param, catname, "CheckDigitIncreaseConsistency", 1, true, "false");
 
     var catname = "MQTT";
     category[catname] = new Object();
@@ -197,6 +278,7 @@ function ParseConfig() {
     ParamAddValue(param, catname, "DomoticzTopicIn");
     ParamAddValue(param, catname, "DomoticzIDX", 1, true);
     ParamAddValue(param, catname, "HomeassistantDiscovery");
+    ParamAddValue(param, catname, "DiscoveryPrefix", 1, false);
     ParamAddValue(param, catname, "MeterType");
     ParamAddValue(param, catname, "CACert");
     ParamAddValue(param, catname, "ClientCert");
@@ -210,7 +292,6 @@ function ParseConfig() {
     param[catname] = new Object();
     ParamAddValue(param, catname, "Uri");
     ParamAddValue(param, catname, "Database");
-//     ParamAddValue(param, catname, "Measurement");
     ParamAddValue(param, catname, "user");
     ParamAddValue(param, catname, "password");
     ParamAddValue(param, catname, "Measurement", 1, true);
@@ -223,7 +304,6 @@ function ParseConfig() {
     param[catname] = new Object();
     ParamAddValue(param, catname, "Uri");
     ParamAddValue(param, catname, "Bucket");
-//     ParamAddValue(param, catname, "Measurement");
     ParamAddValue(param, catname, "Org");
     ParamAddValue(param, catname, "Token");
     ParamAddValue(param, catname, "Measurement", 1, true);
@@ -234,9 +314,9 @@ function ParseConfig() {
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "Uri");
-    ParamAddValue(param, catname, "ApiKey");
-    ParamAddValue(param, catname, "UploadImg");
+    ParamAddValue(param, catname, "Uri", 1, false);
+    ParamAddValue(param, catname, "ApiKey", 1, false);
+    ParamAddValue(param, catname, "UploadImg", 1, false);
 
     var catname = "GPIO";
     category[catname] = new Object();
@@ -264,37 +344,37 @@ function ParseConfig() {
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    //ParamAddValue(param, catname, "AutoStart");
-    ParamAddValue(param, catname, "Interval");     
+    //ParamAddValue(param, catname, "AutoStart", 1, false, "true");
+    ParamAddValue(param, catname, "Interval", 1, false, "5");    
 
     var catname = "DataLogging";
     category[catname] = new Object();
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "DataLogActive");
-    ParamAddValue(param, catname, "DataFilesRetention");     
+    ParamAddValue(param, catname, "DataLogActive", 1, false, "true");
+    ParamAddValue(param, catname, "DataFilesRetention", 1, false, "3");     
 
     var catname = "Debug";
     category[catname] = new Object();
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "LogLevel");
-    ParamAddValue(param, catname, "LogfilesRetention");
+    ParamAddValue(param, catname, "LogLevel", 1, false, "1");
+    ParamAddValue(param, catname, "LogfilesRetention", 1, false, "3");
 
     var catname = "System";
     category[catname] = new Object();
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "Tooltip");	
-    ParamAddValue(param, catname, "TimeZone");
-    ParamAddValue(param, catname, "TimeServer");         
-    ParamAddValue(param, catname, "Hostname");   
-    ParamAddValue(param, catname, "RSSIThreshold");   
-    ParamAddValue(param, catname, "CPUFrequency");
-    ParamAddValue(param, catname, "SetupMode"); 
+    ParamAddValue(param, catname, "TimeZone", 1, false, "default");
+    ParamAddValue(param, catname, "TimeServer", 1, false, "default");
+    ParamAddValue(param, catname, "Hostname", 1, false, "watermeter");   
+    ParamAddValue(param, catname, "RSSIThreshold", 1, false, "0"); 
+    ParamAddValue(param, catname, "CPUFrequency", 1, false, "160");
+    ParamAddValue(param, catname, "Tooltip", 1, false, "true");
+    ParamAddValue(param, catname, "SetupMode", 1, false, "false");
      
     while (aktline < config_split.length){
         for (var cat in category) {
@@ -372,7 +452,7 @@ function ParseConfigParamAll(_aktline, _catname) {
     while ((_aktline < config_split.length) && !(config_split[_aktline][0] == "[") && !((config_split[_aktline][0] == ";") && (config_split[_aktline][1] == "["))) {
         var _input = config_split[_aktline];
         let [isCom, input] = isCommented(_input);
-        var linesplit = ZerlegeZeile(input);
+        var linesplit = split_line(input);
         ParamExtractValueAll(param, linesplit, _catname, _aktline, isCom);
         
         if (!isCom && (linesplit.length >= 5) && (_catname == 'Digits')) {
@@ -788,7 +868,7 @@ function getConfigCategory() {
 }
 
 function ExtractROIs(_aktline, _type){
-    var linesplit = ZerlegeZeile(_aktline);
+    var linesplit = split_line(_aktline);
     abc = getNUMBERS(linesplit[0], _type);
     abc["pos_ref"] = _aktline;
     abc["x"] = linesplit[1];

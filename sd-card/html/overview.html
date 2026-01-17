@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en" xml:lang="en"> 
 <head>
+<meta charset="UTF-8"/>
 <title>Overview</title>
-<meta charset="UTF-8" />
 
 <style>
 .tg  {
@@ -294,7 +294,7 @@
 					}
 
 					if (_split.length == 1) {
-						var _zer = ZerlegeZeile(_split[0], "\t")
+						var _zer = split_line(_split[0], "\t")
 					
 						if (_zer.length > 1) {
 							out = _zer[1];
@@ -305,7 +305,7 @@
 					}
 					else {
 						for (var j = 0; j < _split.length; ++j) {
-							var _zer = ZerlegeZeile(_split[j], "\t")
+							var _zer = split_line(_split[j], "\t")
 						
 							if (_zer.length == 1) {
 								out = out + "<tr><td style=\"width: 22%; padding: 3px 5px; text-align: left; vertical-align:middle; border: 1px solid lightgrey\">" + 

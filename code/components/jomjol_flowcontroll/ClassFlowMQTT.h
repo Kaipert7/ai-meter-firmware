@@ -1,43 +1,80 @@
-#ifdef ENABLE_MQTT
-
 #pragma once
 
 #ifndef CLASSFFLOWMQTT_H
 #define CLASSFFLOWMQTT_H
 
-#include "ClassFlow.h"
+#include <string>
+#include <mqtt_client.h>
 
+#include "ClassFlow.h"
 #include "ClassFlowPostProcessing.h"
 
-#include <string>
+typedef struct
+{
+    bool mqtt_enabled;
+    bool mqtt_configOK;
+    bool mqtt_initialized;
+    bool mqtt_connected;
 
-class ClassFlowMQTT :
-    public ClassFlow
+    bool HomeAssistantDiscovery;
+
+    esp_mqtt_event_id_t esp_mqtt_ID;
+
+    std::string uri;
+    std::string topic;
+    std::string topicError;
+    std::string clientname;
+    std::string topicRate;
+    std::string topicTimeStamp;
+    std::string topicUptime;
+    std::string topicFreeMem;
+    std::string OldValue;
+
+    std::string user;
+    std::string password;
+    std::string caCertFilename;
+    std::string clientCertFilename;
+    std::string clientKeyFilename;
+    bool validateServerCert;
+
+    std::string maintopic;
+    std::string discoveryprefix;
+    std::string domoticzintopic;
+
+    std::string lwt_topic;
+    std::string lwt_connected;
+    std::string lwt_disconnected;
+
+    std::string meterType;
+    std::string valueUnit;
+    std::string timeUnit;
+    std::string rateUnit;
+
+    float roundInterval; // in Minutes
+    bool retainFlag;
+    int keepAlive; // in Seconds
+} mqtt_controll_config_t;
+
+extern mqtt_controll_config_t mqtt_controll_config;
+
+class ClassFlowMQTT : public ClassFlow
 {
 protected:
-    std::string uri, topic, topicError, clientname, topicRate, topicTimeStamp, topicUptime, topicFreeMem;
-    std::string OldValue;
-	ClassFlowPostProcessing* flowpostprocessing;  
-    std::string user, password; 
-    std::string caCertFilename, clientCertFilename, clientKeyFilename;
-    bool validateServerCert;
-    bool SetRetainFlag;
-    int keepAlive; // Seconds
-    float roundInterval; // Minutes
-    std::string maintopic, domoticzintopic; 
-	void SetInitialParameter(void);        
-    void handleIdx(string _decsep, string _value);   
+    ClassFlowPostProcessing *flowpostprocessing;
+
+    void SetInitialParameter(void);
+    void SetMeterType(std::string _meterType, std::string _valueUnit, std::string _timeUnit, std::string _rateUnit);
+    void handleIdx(std::string _decsep, std::string _value);
 
 public:
-    ClassFlowMQTT();
-    ClassFlowMQTT(std::vector<ClassFlow*>* lfc);
-    ClassFlowMQTT(std::vector<ClassFlow*>* lfc, ClassFlow *_prev);
+    ClassFlowMQTT(void);
+    ClassFlowMQTT(std::vector<ClassFlow *> *lfc);
+    ClassFlowMQTT(std::vector<ClassFlow *> *lfc, ClassFlow *_prev);
 
     bool Start(float AutoInterval);
 
-    bool ReadParameter(FILE* pfile, string& aktparamgraph);
-    bool doFlow(string time);
-    string name(){return "ClassFlowMQTT";};
+    bool ReadParameter(FILE *pFile, std::string &aktparamgraph);
+    bool doFlow(std::string time);
+    std::string name(void) { return "ClassFlowMQTT"; };
 };
-#endif //CLASSFFLOWMQTT_H
-#endif //ENABLE_MQTT
+#endif // CLASSFFLOWMQTT_H

@@ -1,11 +1,16 @@
-#ifdef ENABLE_MQTT
+#include "defines.h"
+
+#include "ClassFlowMQTT.h"
 
 #include <sstream>
 #include <iomanip>
-#include "ClassFlowMQTT.h"
+#include <time.h>
+
 #include "Helper.h"
-#include "connect_wlan.h"
-#include "read_wlanini.h"
+
+#include "connect_wifi_sta.h"
+#include "read_network_config.h"
+
 #include "ClassLogFile.h"
 
 #include "time_sntp.h"
@@ -15,52 +20,73 @@
 
 #include "server_mqtt.h"
 
-#include <time.h>
-#include "../../include/defines.h"
-
 static const char *TAG = "MQTT";
 
-extern const char* libfive_git_version(void);
-extern const char* libfive_git_revision(void);
-extern const char* libfive_git_branch(void);
+mqtt_controll_config_t mqtt_controll_config;
 
+extern const char *libfive_git_version(void);
+extern const char *libfive_git_revision(void);
+extern const char *libfive_git_branch(void);
 
 void ClassFlowMQTT::SetInitialParameter(void)
 {
-    uri = "";
-    topic = "";
-    topicError = "";
-    topicRate = "";
-    topicTimeStamp = "";
-    maintopic = wlan_config.hostname;
+    mqtt_controll_config.mqtt_enabled = false;
+    mqtt_controll_config.mqtt_configOK = false;
+    mqtt_controll_config.mqtt_initialized = false;
+    mqtt_controll_config.mqtt_connected = false;
 
-    topicUptime = "";
-    topicFreeMem = "";
+    mqtt_controll_config.HomeAssistantDiscovery = false;
 
-    caCertFilename = "";
-    clientCertFilename = "";
-    clientKeyFilename = "";
-    validateServerCert = true;
-    clientname = wlan_config.hostname;
+    mqtt_controll_config.esp_mqtt_ID = MQTT_EVENT_ANY;
 
-    OldValue = "";
-    flowpostprocessing = NULL;  
-    user = "";
-    password = ""; 
-    SetRetainFlag = false;
+    mqtt_controll_config.uri = "";
+    mqtt_controll_config.topic = "";
+    mqtt_controll_config.topicError = "";
+    mqtt_controll_config.topicRate = "";
+    mqtt_controll_config.topicTimeStamp = "";
+    mqtt_controll_config.maintopic = network_config.hostname;
+    mqtt_controll_config.discoveryprefix = "homeassistant";
+
+    mqtt_controll_config.topicUptime = "";
+    mqtt_controll_config.topicFreeMem = "";
+
+    mqtt_controll_config.caCertFilename = "";
+    mqtt_controll_config.clientCertFilename = "";
+    mqtt_controll_config.clientKeyFilename = "";
+    mqtt_controll_config.validateServerCert = true;
+    mqtt_controll_config.clientname = network_config.hostname;
+
+    mqtt_controll_config.OldValue = "";
+
+    mqtt_controll_config.user = "";
+    mqtt_controll_config.password = "";
+
+    mqtt_controll_config.lwt_topic = mqtt_controll_config.maintopic + "/" + LWT_TOPIC;
+    mqtt_controll_config.lwt_connected = LWT_CONNECTED;
+    mqtt_controll_config.lwt_disconnected = LWT_DISCONNECTED;
+
+    mqtt_controll_config.meterType = "";
+    mqtt_controll_config.valueUnit = "";
+    mqtt_controll_config.timeUnit = "";
+    mqtt_controll_config.rateUnit = "Unit/Minute";
+
+    mqtt_controll_config.retainFlag = false;
+    mqtt_controll_config.keepAlive = 25 * 60;
+    mqtt_controll_config.domoticzintopic = "";
+
+    flowpostprocessing = NULL;
     previousElement = NULL;
-    ListFlowControll = NULL; 
-    disabled = false;
-    keepAlive = 25*60;
-    domoticzintopic = "";
-}       
+    ListFlowControll = NULL;
 
-ClassFlowMQTT::ClassFlowMQTT()
+    disabled = false;
+}
+
+ClassFlowMQTT::ClassFlowMQTT(void)
 {
     SetInitialParameter();
 }
 
-ClassFlowMQTT::ClassFlowMQTT(std::vector<ClassFlow*>* lfc)
+ClassFlowMQTT::ClassFlowMQTT(std::vector<ClassFlow *> *lfc)
 {
     SetInitialParameter();
 
@@ -69,12 +95,12 @@ ClassFlowMQTT::ClassFlowMQTT(std::vector<ClassFlow*>* lfc)
     {
         if (((*ListFlowControll)[i])->name().compare("ClassFlowPostProcessing") == 0)
         {
-            flowpostprocessing = (ClassFlowPostProcessing*) (*ListFlowControll)[i];
+            flowpostprocessing = (ClassFlowPostProcessing *)(*ListFlowControll)[i];
         }
     }
 }
 
-ClassFlowMQTT::ClassFlowMQTT(std::vector<ClassFlow*>* lfc, ClassFlow *_prev)
+ClassFlowMQTT::ClassFlowMQTT(std::vector<ClassFlow *> *lfc, ClassFlow *_prev)
 {
     SetInitialParameter();
 
@@ -85,301 +111,348 @@ ClassFlowMQTT::ClassFlowMQTT(std::vector<ClassFlow*>* lfc, ClassFlow *_prev)
     {
         if (((*ListFlowControll)[i])->name().compare("ClassFlowPostProcessing") == 0)
         {
-            flowpostprocessing = (ClassFlowPostProcessing*) (*ListFlowControll)[i];
+            flowpostprocessing = (ClassFlowPostProcessing *)(*ListFlowControll)[i];
         }
     }
 }
 
-
-bool ClassFlowMQTT::ReadParameter(FILE* pfile, string& aktparamgraph)
+bool ClassFlowMQTT::ReadParameter(FILE *pFile, std::string &aktparamgraph)
 {
-    std::vector<string> splitted;
-
-    aktparamgraph = trim(aktparamgraph);
-
+    aktparamgraph = trim_string_left_right(aktparamgraph);
     if (aktparamgraph.size() == 0)
-        if (!this->GetNextParagraph(pfile, aktparamgraph))
-            return false;
-
-    if (toUpper(aktparamgraph).compare("[MQTT]") != 0)       // Paragraph does not fit MQTT
-        return false;
-
-    while (this->getNextLine(pfile, &aktparamgraph) && !this->isNewParagraph(aktparamgraph))
     {
-        splitted = ZerlegeZeile(aktparamgraph);
-        std::string _param = GetParameterName(splitted[0]);
-        if ((toUpper(_param) == "CACERT") && (splitted.size() > 1))
+        if (!GetNextParagraph(pFile, aktparamgraph))
         {
-            this->caCertFilename = "/sdcard" + splitted[1];
+            return false;
         }
-        if ((toUpper(_param) == "VALIDATESERVERCERT") && (splitted.size() > 1))
-        {
-            validateServerCert = alphanumericToBoolean(splitted[1]);
-        }  
-        if ((toUpper(_param) == "CLIENTCERT") && (splitted.size() > 1))
-        {
-            this->clientCertFilename = "/sdcard" + splitted[1];
-        }  
-        if ((toUpper(_param) == "CLIENTKEY") && (splitted.size() > 1))
-        {
-            this->clientKeyFilename = "/sdcard" + splitted[1];
-        }  
-        if ((toUpper(_param) == "USER") && (splitted.size() > 1))
-        {
-            this->user = splitted[1];
-        }  
-        if ((toUpper(_param) == "PASSWORD") && (splitted.size() > 1))
-        {
-            this->password = splitted[1];
-        }               
-        if ((toUpper(_param) == "URI") && (splitted.size() > 1))
-        {
-            this->uri = splitted[1];
-        }
-        if ((toUpper(_param) == "RETAINMESSAGES") && (splitted.size() > 1))
-        {
-            SetRetainFlag = alphanumericToBoolean(splitted[1]);
-            setMqtt_Server_Retain(SetRetainFlag);
-        }
-        if ((toUpper(_param) == "HOMEASSISTANTDISCOVERY") && (splitted.size() > 1))
-        {
-            if (toUpper(splitted[1]) == "TRUE")
-                SetHomeassistantDiscoveryEnabled(true);  
-        }
-        if ((toUpper(_param) == "METERTYPE") && (splitted.size() > 1)) {
-        /* Use meter type for the device class 
-           Make sure it is a listed one on https://developers.home-assistant.io/docs/core/entity/sensor/#available-device-classes */
-            if (toUpper(splitted[1]) == "WATER_M3") {
-                mqttServer_setMeterType("water", "m³", "h", "m³/h");
-            }
-            else if (toUpper(splitted[1]) == "WATER_L") {
-                mqttServer_setMeterType("water", "L", "h", "L/h");
-            }
-            else if (toUpper(splitted[1]) == "WATER_FT3") {
-                mqttServer_setMeterType("water", "ft³", "min", "ft³/min"); // min = Minutes
-            }
-            else if (toUpper(splitted[1]) == "WATER_GAL") {
-                mqttServer_setMeterType("water", "gal", "h", "gal/h");
-            }
-            else if (toUpper(splitted[1]) == "WATER_GAL_MIN") {
-                mqttServer_setMeterType("water", "gal", "min", "gal/min"); // min = Minutes
-            }
-            else if (toUpper(splitted[1]) == "GAS_M3") {
-                mqttServer_setMeterType("gas", "m³", "h", "m³/h");
-            }
-            else if (toUpper(splitted[1]) == "GAS_FT3") {
-                mqttServer_setMeterType("gas", "ft³", "min", "ft³/min"); // min = Minutes
-            }
-            else if (toUpper(splitted[1]) == "ENERGY_WH") {
-                mqttServer_setMeterType("energy", "Wh", "h", "W");
-            }
-            else if (toUpper(splitted[1]) == "ENERGY_KWH") {
-                mqttServer_setMeterType("energy", "kWh", "h", "kW");
-            }
-            else if (toUpper(splitted[1]) == "ENERGY_MWH") {
-                mqttServer_setMeterType("energy", "MWh", "h", "MW");
-            }
-            else if (toUpper(splitted[1]) == "ENERGY_GJ") {
-                mqttServer_setMeterType("energy", "GJ", "h", "GJ/h");
-            }
-            else if (toUpper(splitted[1]) == "TEMPERATURE_C") {
-                mqttServer_setMeterType("temperature", "°C", "min", "°C/min"); // min = Minutes
-            }
-            else if (toUpper(splitted[1]) == "TEMPERATURE_F") {
-                mqttServer_setMeterType("temperature", "°F", "min", "°F/min"); // min = Minutes
-            }
-            else if (toUpper(splitted[1]) == "TEMPERATURE_K") {
-                mqttServer_setMeterType("temperature", "K", "min", "K/m"); // min = Minutes
-            }
-        }
-
-        if ((toUpper(_param) == "CLIENTID") && (splitted.size() > 1))
-        {
-            this->clientname = splitted[1];
-        }
-
-        if (((toUpper(_param) == "TOPIC") || (toUpper(splitted[0]) == "MAINTOPIC")) && (splitted.size() > 1))
-        {
-            maintopic = splitted[1];
-        }
-
-        if (((toUpper(_param) == "DOMOTICZTOPICIN")) && (splitted.size() > 1))
-        {
-            this->domoticzintopic = splitted[1];
-        }
-
-        if (((toUpper(_param) == "DOMOTICZIDX")) && (splitted.size() > 1))
-        {
-            handleIdx(splitted[0], splitted[1]);
-        }
-        
     }
 
-    /* Note:
-     * Originally, we started the MQTT client here.
-     * How ever we need the interval parameter from the ClassFlowControll, but that only gets started later.
-     * To work around this, we delay the start and trigger it from ClassFlowControll::ReadParameter() */
+    if ((to_upper(aktparamgraph).compare("[MQTT]") != 0) && (to_upper(aktparamgraph).compare(";[MQTT]") != 0))
+    {
+        // Paragraph does not fit MQTT
+        return false;
+    }
 
-    mqttServer_setMainTopic(maintopic);
-    mqttServer_setDmoticzInTopic(domoticzintopic);
+    if (aktparamgraph[0] == ';')
+    {
+        mqtt_controll_config.mqtt_enabled = false;
+        while (getNextLine(pFile, &aktparamgraph) && !isNewParagraph(aktparamgraph));
+        ESP_LOGD(TAG, "mqtt is disabled!");
+
+        return true;
+    }
+
+    std::vector<std::string> splitted;
+
+    while (getNextLine(pFile, &aktparamgraph) && !isNewParagraph(aktparamgraph))
+    {
+        splitted = split_line(aktparamgraph);
+
+        if (splitted.size() > 1)
+        {
+            std::string _param = to_upper(GetParameterName(splitted[0]));
+
+            if (_param == "CACERT")
+            {
+                mqtt_controll_config.caCertFilename = "/sdcard" + splitted[1];
+            }
+            else if (_param == "VALIDATESERVERCERT")
+            {
+                mqtt_controll_config.validateServerCert = alphanumeric_to_boolean(splitted[1]);
+            }
+            else if (_param == "CLIENTCERT")
+            {
+                mqtt_controll_config.clientCertFilename = "/sdcard" + splitted[1];
+            }
+            else if (_param == "CLIENTKEY")
+            {
+                mqtt_controll_config.clientKeyFilename = "/sdcard" + splitted[1];
+            }
+            else if (_param == "USER")
+            {
+                mqtt_controll_config.user = splitted[1];
+            }
+            else if (_param == "PASSWORD")
+            {
+                mqtt_controll_config.password = splitted[1];
+            }
+            else if (_param == "URI")
+            {
+                mqtt_controll_config.uri = splitted[1];
+            }
+            else if (_param == "RETAINMESSAGES")
+            {
+                mqtt_controll_config.retainFlag = alphanumeric_to_boolean(splitted[1]);
+            }
+            else if (_param == "HOMEASSISTANTDISCOVERY")
+            {
+                if (to_upper(splitted[1]) == "TRUE")
+                {
+                    mqtt_controll_config.HomeAssistantDiscovery = true;
+                }
+            }
+            else if (_param == "METERTYPE")
+            {
+                std::string _value = to_upper(splitted[1]);
+
+                /* Use meter type for the device class
+                   Make sure it is a listed one on https://developers.home-assistant.io/docs/core/entity/sensor/#available-device-classes */
+                if (_value == "WATER_M3")
+                {
+                    SetMeterType("water", "m³", "h", "m³/h");
+                }
+                else if (_value == "WATER_L")
+                {
+                    SetMeterType("water", "L", "h", "L/h");
+                }
+                else if (_value == "WATER_FT3")
+                {
+                    SetMeterType("water", "ft³", "min", "ft³/min"); // min = Minutes
+                }
+                else if (_value == "WATER_GAL")
+                {
+                    SetMeterType("water", "gal", "h", "gal/h");
+                }
+                else if (_value == "WATER_GAL_MIN")
+                {
+                    SetMeterType("water", "gal", "min", "gal/min"); // min = Minutes
+                }
+                else if (_value == "GAS_M3")
+                {
+                    SetMeterType("gas", "m³", "h", "m³/h");
+                }
+                else if (_value == "GAS_FT3")
+                {
+                    SetMeterType("gas", "ft³", "min", "ft³/min"); // min = Minutes
+                }
+                else if (_value == "ENERGY_WH")
+                {
+                    SetMeterType("energy", "Wh", "h", "W");
+                }
+                else if (_value == "ENERGY_KWH")
+                {
+                    SetMeterType("energy", "kWh", "h", "kW");
+                }
+                else if (_value == "ENERGY_MWH")
+                {
+                    SetMeterType("energy", "MWh", "h", "MW");
+                }
+                else if (_value == "ENERGY_GJ")
+                {
+                    SetMeterType("energy", "GJ", "h", "GJ/h");
+                }
+                else if (_value == "TEMPERATURE_C")
+                {
+                    SetMeterType("temperature", "°C", "min", "°C/min"); // min = Minutes
+                }
+                else if (_value == "TEMPERATURE_F")
+                {
+                    SetMeterType("temperature", "°F", "min", "°F/min"); // min = Minutes
+                }
+                else if (_value == "TEMPERATURE_K")
+                {
+                    SetMeterType("temperature", "K", "min", "K/m"); // min = Minutes
+                }
+            }
+            else if (_param == "CLIENTID")
+            {
+                mqtt_controll_config.clientname = splitted[1];
+            }
+            else if ((_param == "TOPIC") || (_param == "MAINTOPIC"))
+            {
+                mqtt_controll_config.maintopic = splitted[1];
+            }
+            else if (_param == "DISCOVERYPREFIX")
+            {
+                mqtt_controll_config.discoveryprefix = splitted[1];
+            }
+            else if (_param == "DOMOTICZTOPICIN")
+            {
+                mqtt_controll_config.domoticzintopic = splitted[1];
+            }
+            else if (_param == "DOMOTICZIDX")
+            {
+                handleIdx(splitted[0], splitted[1]);
+            }
+        }
+    }
+
+    if ((mqtt_controll_config.uri.length() > 0) && (mqtt_controll_config.user.length() > 0))
+    {
+        /* Note:
+         * Originally, we started the MQTT client here.
+         * How ever we need the interval parameter from the ClassFlowControl, but that only gets started later.
+         * To work around this, we delay the start and trigger it from ClassFlowControl::ReadParameter() */
+
+        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Init MQTT with uri: " + mqtt_controll_config.uri + ", user: " + mqtt_controll_config.user);
+
+        if (mqtt_controll_config.domoticzintopic.length() > 0)
+        {
+            LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Init MQTT with domoticzintopic: " + mqtt_controll_config.domoticzintopic);
+        }
+
+        mqtt_controll_config.mqtt_enabled = true;
+    }
+    else
+    {
+        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "MQTT init skipped as we are missing some parameters");
+    }
 
     return true;
 }
 
-
-bool ClassFlowMQTT::Start(float AutoInterval) 
+void ClassFlowMQTT::SetMeterType(std::string _meterType, std::string _valueUnit, std::string _timeUnit, std::string _rateUnit)
 {
-    roundInterval = AutoInterval; // Minutes
-    keepAlive = roundInterval * 60 * 2.5; // Seconds, make sure it is greater thatn 2 rounds!
+    mqtt_controll_config.meterType = _meterType;
+    mqtt_controll_config.valueUnit = _valueUnit;
+    mqtt_controll_config.timeUnit = _timeUnit;
+    mqtt_controll_config.rateUnit = _rateUnit;
+}
 
-    std::stringstream stream;
-    stream << std::fixed << std::setprecision(1) << "Digitizer interval is " << roundInterval <<
-            " minutes => setting MQTT LWT timeout to " << ((float)keepAlive/60) << " minutes.";
-    LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, stream.str());
+bool ClassFlowMQTT::Start(float AutoInterval)
+{
+    mqtt_controll_config.roundInterval = AutoInterval;                              // Minutes
+    mqtt_controll_config.keepAlive = mqtt_controll_config.roundInterval * 60 * 2.5; // Seconds, make sure it is greater thatn 2 rounds!
 
-    mqttServer_setParameter(flowpostprocessing->GetNumbers(), keepAlive, roundInterval);
+    mqttServer_setParameter(flowpostprocessing->GetNumbers());
 
-    bool MQTTConfigCheck = MQTT_Configure(uri, clientname, user, password, maintopic, domoticzintopic, LWT_TOPIC, LWT_CONNECTED,
-                                     LWT_DISCONNECTED, caCertFilename, validateServerCert, clientCertFilename, clientKeyFilename,
-                                     keepAlive, SetRetainFlag, (void *)&GotConnected);
-
-    if (!MQTTConfigCheck) {
+    if (!MQTT_Configure((void *)&GotConnected))
+    {
         return false;
     }
 
     return (MQTT_Init() == 1);
 }
 
-
-bool ClassFlowMQTT::doFlow(string zwtime)
+bool ClassFlowMQTT::doFlow(std::string time)
 {
-    bool success;
-    std::string result;
-    std::string resulterror = "";
-    std::string resultraw = "";
-    std::string resultpre = "";
-    std::string resultrate = ""; // Always Unit / Minute
-    std::string resultRatePerTimeUnit = ""; // According to selection
-    std::string resulttimestamp = "";
-    std::string resultchangabs = "";
-    string zw = "";
-    string namenumber = "";
-    string domoticzpayload = "";
-    string DomoticzIdx = "";
     int qos = 1;
+
+    std::string value_temp = "";
+    std::string error_message_text_temp = "";
+    std::string raw_value_temp = "";
+    // std::string pre_value_temp = "";
+    std::string rate_value_temp = ""; // Always Unit / Minute
+    std::string time_stamp_temp = "";
+    std::string change_absolute_temp = "";
 
     /* Send the the Homeassistant Discovery and the Static Topics in case they where scheduled */
     sendDiscovery_and_static_Topics();
-
-    success = publishSystemData(qos);
+    bool success = publishSystemData(qos);
 
     if (flowpostprocessing && getMQTTisConnected())
     {
-        std::vector<NumberPost*>* NUMBERS = flowpostprocessing->GetNumbers();
-
+        std::vector<NumberPost *> *NUMBERS = flowpostprocessing->GetNumbers();
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Publishing MQTT topics...");
 
         for (int i = 0; i < (*NUMBERS).size(); ++i)
         {
-            result =  (*NUMBERS)[i]->ReturnValue;
-            resultraw =  (*NUMBERS)[i]->ReturnRawValue;
-            resultpre =  (*NUMBERS)[i]->ReturnPreValue;
-            resulterror = (*NUMBERS)[i]->ErrorMessageText;
-            resultrate = (*NUMBERS)[i]->ReturnRateValue; // Unit per minutes
-            resultchangabs = (*NUMBERS)[i]->ReturnChangeAbsolute; // Units per round
-            resulttimestamp = (*NUMBERS)[i]->timeStamp;
+            value_temp = (*NUMBERS)[i]->ReturnValue;
+            raw_value_temp = (*NUMBERS)[i]->ReturnRawValue;
+            // pre_value_temp = (*NUMBERS)[i]->ReturnPreValue;
+            error_message_text_temp = (*NUMBERS)[i]->ErrorMessageText;
+            rate_value_temp = (*NUMBERS)[i]->ReturnRateValue;           // Unit per minutes
+            change_absolute_temp = (*NUMBERS)[i]->ReturnChangeAbsolute; // Units per round
+            time_stamp_temp = (*NUMBERS)[i]->timeStamp;
 
-            DomoticzIdx = (*NUMBERS)[i]->DomoticzIdx;
-            domoticzpayload = "{\"command\":\"udevice\",\"idx\":" + DomoticzIdx + ",\"svalue\":\""+ result + "\"}";
+            std::string DomoticzIdx = (*NUMBERS)[i]->DomoticzIdx;
+            std::string domoticzpayload = "{\"command\":\"udevice\",\"idx\":" + DomoticzIdx + ",\"svalue\":\"" + value_temp + "\"}";
 
-            namenumber = (*NUMBERS)[i]->name;
-            if (namenumber == "default")
-                namenumber = maintopic + "/";
+            std::string name_temp = (*NUMBERS)[i]->name;
+
+            if (name_temp == "default")
+            {
+                name_temp = mqtt_controll_config.maintopic + "/";
+            }
             else
-                namenumber = maintopic + "/" + namenumber + "/";
+            {
+                name_temp = mqtt_controll_config.maintopic + "/" + name_temp + "/";
+            }
 
-            if ((domoticzintopic.length() > 0) && (result.length() > 0)) 
-                success |= MQTTPublish(domoticzintopic, domoticzpayload, qos, SetRetainFlag);
+            if ((mqtt_controll_config.domoticzintopic.length() > 0) && (value_temp.length() > 0))
+            {
+                success |= MQTTPublish(mqtt_controll_config.domoticzintopic, domoticzpayload, qos, mqtt_controll_config.retainFlag);
+            }
 
-            if (result.length() > 0)
-                success |= MQTTPublish(namenumber + "value", result, qos, SetRetainFlag);
-            if (resulterror.length() > 0)  
-                success |= MQTTPublish(namenumber + "error", resulterror, qos, SetRetainFlag);
+            if (value_temp.length() > 0)
+            {
+                success |= MQTTPublish(name_temp + "value", value_temp, qos, mqtt_controll_config.retainFlag);
+            }
 
-            if (resultrate.length() > 0) {
-                success |= MQTTPublish(namenumber + "rate", resultrate, qos, SetRetainFlag);
-                
+            if (error_message_text_temp.length() > 0)
+            {
+                success |= MQTTPublish(name_temp + "error", error_message_text_temp, qos, mqtt_controll_config.retainFlag);
+            }
+
+            if (rate_value_temp.length() > 0)
+            {
+                success |= MQTTPublish(name_temp + "rate", rate_value_temp, qos, mqtt_controll_config.retainFlag);
+
                 std::string resultRatePerTimeUnit;
-                if (getTimeUnit() == "h") { // Need conversion to be per hour
+                if (mqtt_controll_config.timeUnit == "h")
+                {
+                    // Need conversion to be per hour
                     resultRatePerTimeUnit = resultRatePerTimeUnit = to_string((*NUMBERS)[i]->FlowRateAct * 60); // per minutes => per hour
                 }
-                else { // Keep per minute
-                    resultRatePerTimeUnit = resultrate;
+                else
+                {
+                    // Keep per minute
+                    resultRatePerTimeUnit = rate_value_temp;
                 }
-                success |= MQTTPublish(namenumber + "rate_per_time_unit", resultRatePerTimeUnit, qos, SetRetainFlag);
+                success |= MQTTPublish(name_temp + "rate_per_time_unit", resultRatePerTimeUnit, qos, mqtt_controll_config.retainFlag);
             }
 
-            if (resultchangabs.length() > 0) {
-                success |= MQTTPublish(namenumber + "changeabsolut", resultchangabs, qos, SetRetainFlag); // Legacy API
-                success |= MQTTPublish(namenumber + "rate_per_digitization_round", resultchangabs, qos, SetRetainFlag);
+            if (change_absolute_temp.length() > 0)
+            {
+                success |= MQTTPublish(name_temp + "changeabsolut", change_absolute_temp, qos, mqtt_controll_config.retainFlag); // Legacy API
+                success |= MQTTPublish(name_temp + "rate_per_digitization_round", change_absolute_temp, qos, mqtt_controll_config.retainFlag);
             }
 
-            if (resultraw.length() > 0)   
-                success |= MQTTPublish(namenumber + "raw", resultraw, qos, SetRetainFlag);
+            if (raw_value_temp.length() > 0)
+            {
+                success |= MQTTPublish(name_temp + "raw", raw_value_temp, qos, mqtt_controll_config.retainFlag);
+            }
 
-            if (resulttimestamp.length() > 0)
-                success |= MQTTPublish(namenumber + "timestamp", resulttimestamp, qos, SetRetainFlag);
+            if (time_stamp_temp.length() > 0)
+            {
+                success |= MQTTPublish(name_temp + "timestamp", time_stamp_temp, qos, mqtt_controll_config.retainFlag);
+            }
 
             std::string json = flowpostprocessing->getJsonFromNumber(i, "\n");
-            success |= MQTTPublish(namenumber + "json", json, qos, SetRetainFlag);
+            success |= MQTTPublish(name_temp + "json", json, qos, mqtt_controll_config.retainFlag);
         }
     }
-    
-    /* Disabled because this is no longer a use case */
-    // else
-    // {
-    //     for (int i = 0; i < ListFlowControll->size(); ++i)
-    //     {
-    //         zw = (*ListFlowControll)[i]->getReadout();
-    //         if (zw.length() > 0)
-    //         {
-    //             if (result.length() == 0)
-    //                 result = zw;
-    //             else
-    //                 result = result + "\t" + zw;
-    //         }
-    //     }
-    //     success |= MQTTPublish(topic, result, qos, SetRetainFlag);
-    // }
-    
-    OldValue = result;
 
-    if (!success) {
+    mqtt_controll_config.OldValue = value_temp;
+
+    if (!success)
+    {
         LogFile.WriteToFile(ESP_LOG_WARN, TAG, "One or more MQTT topics failed to be published!");
     }
-    
+
     return true;
 }
-void ClassFlowMQTT::handleIdx(string _decsep, string _value)
+
+void ClassFlowMQTT::handleIdx(std::string _decsep, std::string _value)
 {
-    string _digit, _decpos;
+    std::string _digit;
     int _pospunkt = _decsep.find_first_of(".");
-//    ESP_LOGD(TAG, "Name: %s, Pospunkt: %d", _decsep.c_str(), _pospunkt);
+
     if (_pospunkt > -1)
+    {
         _digit = _decsep.substr(0, _pospunkt);
+    }
     else
+    {
         _digit = "default";
+    }
+
     for (int j = 0; j < flowpostprocessing->NUMBERS.size(); ++j)
     {
-        if (_digit == "default")                        //  Set to default first (if nothing else is set)
-        {
-            flowpostprocessing->NUMBERS[j]->DomoticzIdx = _value;
-        }
-        if (flowpostprocessing->NUMBERS[j]->name == _digit)
+        //  Set to default first (if nothing else is set)
+        if ((_digit == "default") || (flowpostprocessing->NUMBERS[j]->name == _digit))
         {
             flowpostprocessing->NUMBERS[j]->DomoticzIdx = _value;
         }
     }
 }
-
-#endif //ENABLE_MQTT

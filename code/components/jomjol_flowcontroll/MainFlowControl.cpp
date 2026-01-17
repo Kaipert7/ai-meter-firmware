@@ -1,15 +1,16 @@
+#include "defines.h"
+
 #include "MainFlowControl.h"
 
 #include <string>
 #include <vector>
-#include "string.h"
-#include "esp_log.h"
+#include <string.h>
+#include <esp_log.h>
 #include <esp_timer.h>
 
 #include <iomanip>
 #include <sstream>
 
-#include "../../include/defines.h"
 #include "Helper.h"
 #include "statusled.h"
 
@@ -24,8 +25,9 @@
 
 #include "server_file.h"
 
-#include "read_wlanini.h"
-#include "connect_wlan.h"
+#include "read_network_config.h"
+#include "connect_wifi_sta.h"
+#include "connect_roaming.h"
 #include "psram.h"
 #include "basic_auth.h"
 
@@ -35,7 +37,6 @@
 #endif
 
 ClassFlowControll flowctrl;
-camera_flow_config_temp_t CFstatus;
 
 TaskHandle_t xHandletask_autodoFlow = NULL;
 
@@ -50,12 +51,9 @@ bool isPlannedReboot = false;
 
 static const char *TAG = "MAINCTRL";
 
-// #define DEBUG_DETAIL_ON
-
 void CheckIsPlannedReboot(void)
 {
     FILE *pfile;
-
     if ((pfile = fopen("/sdcard/reboot.txt", "r")) == NULL)
     {
         // LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Initial boot or not a planned reboot");
@@ -64,7 +62,7 @@ void CheckIsPlannedReboot(void)
     else
     {
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Planned reboot");
-        DeleteFile("/sdcard/reboot.txt"); // Prevent Boot Loop!!!
+        delete_file("/sdcard/reboot.txt"); // Prevent Boot Loop!!!
         isPlannedReboot = true;
     }
 }
@@ -96,37 +94,21 @@ bool isSetupModusActive(void)
 
 void DeleteMainFlowTask(void)
 {
-#ifdef DEBUG_DETAIL_ON
-    ESP_LOGD(TAG, "DeleteMainFlowTask: xHandletask_autodoFlow: %ld", (long)xHandletask_autodoFlow);
-#endif
-
     if (xHandletask_autodoFlow != NULL)
     {
         vTaskDelete(xHandletask_autodoFlow);
         xHandletask_autodoFlow = NULL;
     }
-
-#ifdef DEBUG_DETAIL_ON
-    ESP_LOGD(TAG, "Killed: xHandletask_autodoFlow");
-#endif
 }
 
 void doInit(void)
 {
-#ifdef DEBUG_DETAIL_ON
-    ESP_LOGD(TAG, "Start flowctrl.InitFlow(config);");
-#endif
     flowctrl.InitFlow(CONFIG_FILE);
-#ifdef DEBUG_DETAIL_ON
-    ESP_LOGD(TAG, "Finished flowctrl.InitFlow(config);");
-#endif
 
     /* GPIO handler has to be initialized before MQTT init to ensure proper topic subscription */
     gpio_handler_init();
 
-#ifdef ENABLE_MQTT
     flowctrl.StartMQTTService();
-#endif // ENABLE_MQTT
 }
 
 bool doflow(void)
@@ -136,182 +118,12 @@ bool doflow(void)
     flowisrunning = true;
     flowctrl.doFlow(zw_time);
     flowisrunning = false;
-
-#ifdef DEBUG_DETAIL_ON
-    ESP_LOGD(TAG, "doflow - end %s", zw_time.c_str());
-#endif
-
     return true;
-}
-
-esp_err_t setCCstatusToCFstatus(void)
-{
-    CFstatus.CamSensor_id = CCstatus.CamSensor_id;
-
-    CFstatus.ImageFrameSize = CCstatus.ImageFrameSize;
-
-    CFstatus.ImageContrast = CCstatus.ImageContrast;
-    CFstatus.ImageBrightness = CCstatus.ImageBrightness;
-    CFstatus.ImageSaturation = CCstatus.ImageSaturation;
-
-    CFstatus.ImageQuality = CCstatus.ImageQuality;
-
-    CFstatus.ImageGainceiling = CCstatus.ImageGainceiling;
-
-    CFstatus.ImageAgc = CCstatus.ImageAgc;
-    CFstatus.ImageAec = CCstatus.ImageAec;
-    CFstatus.ImageHmirror = CCstatus.ImageHmirror;
-    CFstatus.ImageVflip = CCstatus.ImageVflip;
-
-    CFstatus.ImageAwb = CCstatus.ImageAwb;
-    CFstatus.ImageAec2 = CCstatus.ImageAec2;
-    CFstatus.ImageAecValue = CCstatus.ImageAecValue;
-    CFstatus.ImageSpecialEffect = CCstatus.ImageSpecialEffect;
-    CFstatus.ImageWbMode = CCstatus.ImageWbMode;
-    CFstatus.ImageAeLevel = CCstatus.ImageAeLevel;
-
-    CFstatus.ImageDcw = CCstatus.ImageDcw;
-    CFstatus.ImageBpc = CCstatus.ImageBpc;
-    CFstatus.ImageWpc = CCstatus.ImageWpc;
-    CFstatus.ImageAwbGain = CCstatus.ImageAwbGain;
-    CFstatus.ImageAgcGain = CCstatus.ImageAgcGain;
-
-    CFstatus.ImageRawGma = CCstatus.ImageRawGma;
-    CFstatus.ImageLenc = CCstatus.ImageLenc;
-
-    CFstatus.ImageSharpness = CCstatus.ImageSharpness;
-    CFstatus.ImageAutoSharpness = CCstatus.ImageAutoSharpness;
-
-    CFstatus.ImageDenoiseLevel = CCstatus.ImageDenoiseLevel;
-
-    CFstatus.ImageLedIntensity = CCstatus.ImageLedIntensity;
-
-    CFstatus.ImageZoomEnabled = CCstatus.ImageZoomEnabled;
-    CFstatus.ImageZoomOffsetX = CCstatus.ImageZoomOffsetX;
-    CFstatus.ImageZoomOffsetY = CCstatus.ImageZoomOffsetY;
-    CFstatus.ImageZoomSize = CCstatus.ImageZoomSize;
-
-    CFstatus.WaitBeforePicture = CCstatus.WaitBeforePicture;
-
-    return ESP_OK;
-}
-
-esp_err_t setCFstatusToCCstatus(void)
-{
-    // CCstatus.CamSensor_id = CFstatus.CamSensor_id;
-
-    CCstatus.ImageFrameSize = CFstatus.ImageFrameSize;
-
-    CCstatus.ImageContrast = CFstatus.ImageContrast;
-    CCstatus.ImageBrightness = CFstatus.ImageBrightness;
-    CCstatus.ImageSaturation = CFstatus.ImageSaturation;
-
-    CCstatus.ImageQuality = CFstatus.ImageQuality;
-
-    CCstatus.ImageGainceiling = CFstatus.ImageGainceiling;
-
-    CCstatus.ImageAgc = CFstatus.ImageAgc;
-    CCstatus.ImageAec = CFstatus.ImageAec;
-    CCstatus.ImageHmirror = CFstatus.ImageHmirror;
-    CCstatus.ImageVflip = CFstatus.ImageVflip;
-
-    CCstatus.ImageAwb = CFstatus.ImageAwb;
-    CCstatus.ImageAec2 = CFstatus.ImageAec2;
-    CCstatus.ImageAecValue = CFstatus.ImageAecValue;
-    CCstatus.ImageSpecialEffect = CFstatus.ImageSpecialEffect;
-    CCstatus.ImageWbMode = CFstatus.ImageWbMode;
-    CCstatus.ImageAeLevel = CFstatus.ImageAeLevel;
-
-    CCstatus.ImageDcw = CFstatus.ImageDcw;
-    CCstatus.ImageBpc = CFstatus.ImageBpc;
-    CCstatus.ImageWpc = CFstatus.ImageWpc;
-    CCstatus.ImageAwbGain = CFstatus.ImageAwbGain;
-    CCstatus.ImageAgcGain = CFstatus.ImageAgcGain;
-
-    CCstatus.ImageRawGma = CFstatus.ImageRawGma;
-    CCstatus.ImageLenc = CFstatus.ImageLenc;
-
-    CCstatus.ImageSharpness = CFstatus.ImageSharpness;
-    CCstatus.ImageAutoSharpness = CFstatus.ImageAutoSharpness;
-
-    CCstatus.ImageDenoiseLevel = CFstatus.ImageDenoiseLevel;
-
-    CCstatus.ImageLedIntensity = CFstatus.ImageLedIntensity;
-
-    CCstatus.ImageZoomEnabled = CFstatus.ImageZoomEnabled;
-    CCstatus.ImageZoomOffsetX = CFstatus.ImageZoomOffsetX;
-    CCstatus.ImageZoomOffsetY = CFstatus.ImageZoomOffsetY;
-    CCstatus.ImageZoomSize = CFstatus.ImageZoomSize;
-
-    CCstatus.WaitBeforePicture = CFstatus.WaitBeforePicture;
-
-    return ESP_OK;
-}
-
-esp_err_t setCFstatusToCam(void)
-{
-    sensor_t *s = esp_camera_sensor_get();
-
-    if (s != NULL)
-    {
-        s->set_framesize(s, CFstatus.ImageFrameSize);
-
-        // s->set_contrast(s, CFstatus.ImageContrast);     // -2 to 2
-        // s->set_brightness(s, CFstatus.ImageBrightness); // -2 to 2
-        Camera.SetCamContrastBrightness(s, CFstatus.ImageContrast, CFstatus.ImageBrightness);
-		
-        s->set_saturation(s, CFstatus.ImageSaturation); // -2 to 2
-
-        s->set_quality(s, CFstatus.ImageQuality); // 0 - 63
-
-        // s->set_gainceiling(s, CFstatus.ImageGainceiling); // Image gain (GAINCEILING_x2, x4, x8, x16, x32, x64 or x128)
-        Camera.SetCamGainceiling(s, CFstatus.ImageGainceiling);
-
-        s->set_gain_ctrl(s, CFstatus.ImageAgc);     // 0 = disable , 1 = enable
-        s->set_exposure_ctrl(s, CFstatus.ImageAec); // 0 = disable , 1 = enable
-        s->set_hmirror(s, CFstatus.ImageHmirror);   // 0 = disable , 1 = enable
-        s->set_vflip(s, CFstatus.ImageVflip);       // 0 = disable , 1 = enable
-
-        s->set_whitebal(s, CFstatus.ImageAwb);       // 0 = disable , 1 = enable
-        s->set_aec2(s, CFstatus.ImageAec2);          // 0 = disable , 1 = enable
-        s->set_aec_value(s, CFstatus.ImageAecValue); // 0 to 1200
-        // s->set_special_effect(s, CFstatus.ImageSpecialEffect); // 0 to 6 (0 - No Effect, 1 - Negative, 2 - Grayscale, 3 - Red Tint, 4 - Green Tint, 5 - Blue Tint, 6 - Sepia)
-        Camera.SetCamSpecialEffect(s, CFstatus.ImageSpecialEffect);
-        s->set_wb_mode(s, CFstatus.ImageWbMode);   // 0 to 4 - if awb_gain enabled (0 - Auto, 1 - Sunny, 2 - Cloudy, 3 - Office, 4 - Home)
-        s->set_ae_level(s, CFstatus.ImageAeLevel); // -2 to 2
-
-        s->set_dcw(s, CFstatus.ImageDcw);          // 0 = disable , 1 = enable
-        s->set_bpc(s, CFstatus.ImageBpc);          // 0 = disable , 1 = enable
-        s->set_wpc(s, CFstatus.ImageWpc);          // 0 = disable , 1 = enable
-        s->set_awb_gain(s, CFstatus.ImageAwbGain); // 0 = disable , 1 = enable
-        s->set_agc_gain(s, CFstatus.ImageAgcGain); // 0 to 30
-
-        s->set_raw_gma(s, CFstatus.ImageRawGma); // 0 = disable , 1 = enable
-        s->set_lenc(s, CFstatus.ImageLenc);      // 0 = disable , 1 = enable
-
-        // s->set_sharpness(s, CFstatus.ImageSharpness);   // auto-sharpness is not officially supported, default to 0
-        Camera.SetCamSharpness(CFstatus.ImageAutoSharpness, CFstatus.ImageSharpness);
-        s->set_denoise(s, CFstatus.ImageDenoiseLevel); // The OV2640 does not support it, OV3660 and OV5640 (0 to 8)
-
-        TickType_t xDelay2 = 100 / portTICK_PERIOD_MS;
-        vTaskDelay(xDelay2);
-
-        return ESP_OK;
-    }
-    else
-    {
-        return ESP_FAIL;
-    }
 }
 
 esp_err_t handler_get_heap(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_get_heap - Start");
-    ESP_LOGD(TAG, "handler_get_heap uri: %s", req->uri);
-#endif
-
-    std::string zw = "Heap info:<br>" + getESPHeapInfo();
+    std::string zw = "Heap info:<br>" + get_heapinfo();
 
 #ifdef TASK_ANALYSIS_ON
     char *pcTaskList = (char *)calloc_psram_heap(std::string(TAG) + "->pcTaskList", 1, sizeof(char) * 768, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
@@ -338,20 +150,11 @@ esp_err_t handler_get_heap(httpd_req_t *req)
         httpd_resp_send(req, NULL, 0);
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_get_heap - Done");
-#endif
-
     return ESP_OK;
 }
 
 esp_err_t handler_init(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_init - Start");
-    ESP_LOGD(TAG, "handler_doinit uri: %s", req->uri);
-#endif
-
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     const char *resp_str = "Init started<br>";
     httpd_resp_send(req, resp_str, HTTPD_RESP_USE_STRLEN);
@@ -361,32 +164,20 @@ esp_err_t handler_init(httpd_req_t *req)
     resp_str = "Init done<br>";
     httpd_resp_send(req, resp_str, HTTPD_RESP_USE_STRLEN);
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_init - Done");
-#endif
-
     return ESP_OK;
 }
 
 esp_err_t handler_stream(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_stream - Start");
-    ESP_LOGD(TAG, "handler_stream uri: %s", req->uri);
-#endif
-
     char _query[50];
     char _value[10];
     bool flashlightOn = false;
 
     if (httpd_req_get_url_query_str(req, _query, 50) == ESP_OK)
     {
-        //        ESP_LOGD(TAG, "Query: %s", _query);
+        // ESP_LOGD(TAG, "Query: %s", _query);
         if (httpd_query_key_value(_query, "flashlight", _value, 10) == ESP_OK)
         {
-#ifdef DEBUG_DETAIL_ON
-            ESP_LOGD(TAG, "flashlight is found%s", _value);
-#endif
             if (strlen(_value) > 0)
             {
                 flashlightOn = true;
@@ -394,21 +185,13 @@ esp_err_t handler_stream(httpd_req_t *req)
         }
     }
 
-    Camera.CaptureToStream(req, flashlightOn);
-
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_stream - Done");
-#endif
+    Camera.capture_to_stream(req, flashlightOn);
 
     return ESP_OK;
 }
 
 esp_err_t handler_flow_start(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_flow_start - Start");
-#endif
-
     ESP_LOGD(TAG, "handler_flow_start uri: %s", req->uri);
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -426,20 +209,11 @@ esp_err_t handler_flow_start(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "Flow start triggered by REST API, but flow is not active");
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_flow_start - Done");
-#endif
-
     return ESP_OK;
 }
 
-#ifdef ENABLE_MQTT
 esp_err_t MQTTCtrlFlowStart(std::string _topic)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("MQTTCtrlFlowStart - Start");
-#endif
-
     ESP_LOGD(TAG, "MQTTCtrlFlowStart: topic %s", _topic.c_str());
 
     if (autostartIsEnabled)
@@ -452,20 +226,11 @@ esp_err_t MQTTCtrlFlowStart(std::string _topic)
         LogFile.WriteToFile(ESP_LOG_WARN, TAG, "Flow start triggered by MQTT topic " + _topic + ", but flow is not active!");
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("MQTTCtrlFlowStart - Done");
-#endif
-
     return ESP_OK;
 }
-#endif // ENABLE_MQTT
 
 esp_err_t handler_json(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_json - Start");
-#endif
-
     ESP_LOGD(TAG, "handler_JSON uri: %s", req->uri);
 
     if (bTaskAutoFlowCreated)
@@ -489,35 +254,27 @@ esp_err_t handler_json(httpd_req_t *req)
         return ESP_ERR_NOT_FOUND;
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_JSON - Done");
-#endif
-
     return ESP_OK;
 }
 
 /**
- * Generates a http response containing the OpenMetrics (https://openmetrics.io/) text wire format 
+ * Generates a http response containing the OpenMetrics (https://openmetrics.io/) text wire format
  * according to https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#text-format.
- * 
+ *
  * A MetricFamily with a Metric for each Sequence is provided. If no valid value is available, the metric is not provided.
  * MetricPoints are provided without a timestamp. Additional metrics with some device information is also provided.
- * 
+ *
  * The metric name prefix is 'ai_on_the_edge_device_'.
- * 
+ *
  * example configuration for Prometheus (`prometheus.yml`):
- * 
+ *
  *    - job_name: watermeter
  *      static_configs:
  *        - targets: ['watermeter.fritz.box']
- * 
-*/
+ *
+ */
 esp_err_t handler_openmetrics(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_openmetrics - Start");
-#endif
-
     ESP_LOGD(TAG, "handler_openmetrics uri: %s", req->uri);
 
     if (bTaskAutoFlowCreated)
@@ -531,16 +288,16 @@ esp_err_t handler_openmetrics(httpd_req_t *req)
         string response = createSequenceMetrics(metricNamePrefix, flowctrl.getNumbers());
 
         // CPU Temperature
-        response += createMetric(metricNamePrefix + "_cpu_temperature_celsius", "current cpu temperature in celsius", "gauge", std::to_string((int)temperatureRead())); 
+        response += createMetric(metricNamePrefix + "_cpu_temperature_celsius", "current cpu temperature in celsius", "gauge", std::to_string((int)read_tempsensor()));
 
         // WiFi signal strength
-        response += createMetric(metricNamePrefix + "_rssi_dbm", "current WiFi signal strength in dBm", "gauge", std::to_string(get_WIFI_RSSI())); 
+        response += createMetric(metricNamePrefix + "_rssi_dbm", "current WiFi signal strength in dBm", "gauge", std::to_string(get_wifi_rssi()));
 
         // memory info
-        response += createMetric(metricNamePrefix + "_memory_heap_free_bytes", "available heap memory", "gauge", std::to_string(getESPHeapSize())); 
+        response += createMetric(metricNamePrefix + "_memory_heap_free_bytes", "available heap memory", "gauge", std::to_string(get_heapsize()));
 
         // device uptime
-        response += createMetric(metricNamePrefix + "_uptime_seconds", "device uptime in seconds", "gauge", std::to_string((long)getUpTime())); 
+        response += createMetric(metricNamePrefix + "_uptime_seconds", "device uptime in seconds", "gauge", std::to_string((long)get_uptime()));
 
         // data aquisition round
         response += createMetric(metricNamePrefix + "_rounds_total", "data aquisition rounds since device startup", "counter", std::to_string(countRounds));
@@ -554,26 +311,17 @@ esp_err_t handler_openmetrics(httpd_req_t *req)
         return ESP_ERR_NOT_FOUND;
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_openmetrics - Done");
-#endif
-
     return ESP_OK;
 }
 
-esp_err_t handler_wasserzaehler(httpd_req_t *req)
+esp_err_t handler_value(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler water counter - Start");
-#endif
-
     if (bTaskAutoFlowCreated)
     {
         bool _rawValue = false;
         bool _noerror = false;
         bool _all = false;
         std::string _type = "value";
-        std::string zw;
 
         ESP_LOGD(TAG, "handler water counter uri: %s", req->uri);
 
@@ -582,36 +330,24 @@ esp_err_t handler_wasserzaehler(httpd_req_t *req)
 
         if (httpd_req_get_url_query_str(req, _query, 100) == ESP_OK)
         {
-            //        ESP_LOGD(TAG, "Query: %s", _query);
+            // ESP_LOGD(TAG, "Query: %s", _query);
             if (httpd_query_key_value(_query, "all", _size, 10) == ESP_OK)
             {
-#ifdef DEBUG_DETAIL_ON
-                ESP_LOGD(TAG, "all is found%s", _size);
-#endif
                 _all = true;
             }
 
             if (httpd_query_key_value(_query, "type", _size, 10) == ESP_OK)
             {
-#ifdef DEBUG_DETAIL_ON
-                ESP_LOGD(TAG, "all is found: %s", _size);
-#endif
                 _type = std::string(_size);
             }
 
             if (httpd_query_key_value(_query, "rawvalue", _size, 10) == ESP_OK)
             {
-#ifdef DEBUG_DETAIL_ON
-                ESP_LOGD(TAG, "rawvalue is found: %s", _size);
-#endif
                 _rawValue = true;
             }
 
             if (httpd_query_key_value(_query, "noerror", _size, 10) == ESP_OK)
             {
-#ifdef DEBUG_DETAIL_ON
-                ESP_LOGD(TAG, "noerror is found: %s", _size);
-#endif
                 _noerror = true;
             }
         }
@@ -628,23 +364,21 @@ esp_err_t handler_wasserzaehler(httpd_req_t *req)
             {
                 _intype = READOUT_TYPE_PREVALUE;
             }
-
-            if (_type == "raw")
+            else if (_type == "raw")
             {
                 _intype = READOUT_TYPE_RAWVALUE;
             }
-
-            if (_type == "error")
+            else if (_type == "error")
             {
                 _intype = READOUT_TYPE_ERROR;
             }
 
-            zw = flowctrl.getReadoutAll(_intype);
-            ESP_LOGD(TAG, "ZW: %s", zw.c_str());
+            std::string temp_value = flowctrl.getReadoutAll(_intype);
+            ESP_LOGD(TAG, "temp_value: %s", temp_value.c_str());
 
-            if (zw.length() > 0)
+            if (temp_value.length() > 0)
             {
-                httpd_resp_send(req, zw.c_str(), zw.length());
+                httpd_resp_send(req, temp_value.c_str(), temp_value.length());
             }
 
             return ESP_OK;
@@ -652,7 +386,7 @@ esp_err_t handler_wasserzaehler(httpd_req_t *req)
 
         std::string *status = flowctrl.getActStatus();
         std::string query = std::string(_query);
-        //    ESP_LOGD(TAG, "Query: %s, query.c_str());
+        // ESP_LOGD(TAG, "Query: %s, query.c_str());
 
         if (query.find("full") != std::string::npos)
         {
@@ -672,16 +406,16 @@ esp_err_t handler_wasserzaehler(httpd_req_t *req)
             httpd_resp_sendstr_chunk(req, txt.c_str());
         }
 
-        zw = flowctrl.getReadout(_rawValue, _noerror, 0);
+        std::string temp_value = flowctrl.getReadout(_rawValue, _noerror, 0);
 
-        if (zw.length() > 0)
+        if (temp_value.length() > 0)
         {
-            httpd_resp_sendstr_chunk(req, zw.c_str());
+            httpd_resp_sendstr_chunk(req, temp_value.c_str());
         }
 
         if (query.find("full") != std::string::npos)
         {
-            std::string txt, zw;
+            std::string output_string, temp_string;
 
             if ((countRounds <= 1) && (*status != std::string("Flow finished")))
             {
@@ -691,94 +425,93 @@ esp_err_t handler_wasserzaehler(httpd_req_t *req)
             else
             {
                 /* Digit ROIs */
-                txt = "<body style=\"font-family: arial\">";
-                txt += "<hr><h3>Recognized Digit ROIs (previous round)</h3>\n";
-                txt += "<table style=\"border-spacing: 5px\"><tr style=\"text-align: center; vertical-align: top;\">\n";
+                output_string = "<body style=\"font-family: arial\">";
+                output_string += "<hr><h3>Recognized Digit ROIs (previous round)</h3>\n";
+                output_string += "<table style=\"border-spacing: 5px\"><tr style=\"text-align: center; vertical-align: top;\">\n";
 
-                std::vector<HTMLInfo *> htmlinfodig;
-                htmlinfodig = flowctrl.GetAllDigit();
+                std::vector<HTMLInfo *> htmlinfo_dig;
+                htmlinfo_dig = flowctrl.GetAllDigit();
 
-                for (int i = 0; i < htmlinfodig.size(); ++i)
+                for (int i = 0; i < htmlinfo_dig.size(); ++i)
                 {
                     if (flowctrl.GetTypeDigit() == Digit)
                     {
                         // Numbers greater than 10 and less than 0 indicate NaN, since a Roi can only have values ​​from 0 to 9.
-                        if ((htmlinfodig[i]->val >= 10) || (htmlinfodig[i]->val < 0))
+                        if ((htmlinfo_dig[i]->val >= 10.0) || (htmlinfo_dig[i]->val < 0.0))
                         {
-                            zw = "NaN";
+                            temp_string = "NaN";
                         }
                         else
                         {
-                            zw = std::to_string((int)htmlinfodig[i]->val);
+                            temp_string = std::to_string((int)htmlinfo_dig[i]->val);
                         }
 
-                        txt += "<td style=\"width: 100px\"><h4>" + zw + "</h4><p><img src=\"/img_tmp/" + htmlinfodig[i]->filename + "\"></p></td>\n";
+                        output_string += "<td style=\"width: 100px\"><h4>" + temp_string + "</h4><p><img src=\"/img_tmp/" + htmlinfo_dig[i]->filename + "\"></p></td>\n";
                     }
                     else
                     {
                         std::stringstream stream;
-                        stream << std::fixed << std::setprecision(1) << htmlinfodig[i]->val;
-                        zw = stream.str();
+                        stream << std::fixed << std::setprecision(2) << htmlinfo_dig[i]->val;
+                        temp_string = stream.str();
 
                         // Numbers greater than 10 and less than 0 indicate NaN, since a Roi can only have values ​​from 0 to 9.
-                        if ((std::stod(zw) >= 10) || (std::stod(zw) < 0))
+                        if ((std::stof(temp_string) >= 10.00) || (std::stof(temp_string) < 0.00))
                         {
-                            zw = "NaN";
+                            temp_string = "NaN";
                         }
 
-                        txt += "<td style=\"width: 100px\"><h4>" + zw + "</h4><p><img src=\"/img_tmp/" + htmlinfodig[i]->filename + "\"></p></td>\n";
+                        output_string += "<td style=\"width: 100px\"><h4>" + temp_string + "</h4><p><img src=\"/img_tmp/" + htmlinfo_dig[i]->filename + "\"></p></td>\n";
                     }
-                    delete htmlinfodig[i];
+                    
+                    delete htmlinfo_dig[i];
                 }
 
-                htmlinfodig.clear();
+                htmlinfo_dig.clear();
 
-                txt += "</tr></table>\n";
-                httpd_resp_sendstr_chunk(req, txt.c_str());
+                output_string += "</tr></table>\n";
+                httpd_resp_sendstr_chunk(req, output_string.c_str());
 
                 /* Analog ROIs */
-                txt = "<hr><h3>Recognized Analog ROIs (previous round)</h3>\n";
-                txt += "<table style=\"border-spacing: 5px\"><tr style=\"text-align: center; vertical-align: top;\">\n";
+                output_string = "<hr><h3>Recognized Analog ROIs (previous round)</h3>\n";
+                output_string += "<table style=\"border-spacing: 5px\"><tr style=\"text-align: center; vertical-align: top;\">\n";
 
-                std::vector<HTMLInfo *> htmlinfoana;
-                htmlinfoana = flowctrl.GetAllAnalog();
+                std::vector<HTMLInfo *> htmlinfo_ana;
+                htmlinfo_ana = flowctrl.GetAllAnalog();
 
-                for (int i = 0; i < htmlinfoana.size(); ++i)
+                for (int i = 0; i < htmlinfo_ana.size(); ++i)
                 {
                     std::stringstream stream;
-                    stream << std::fixed << std::setprecision(1) << htmlinfoana[i]->val;
-                    zw = stream.str();
-                    
+                    stream << std::fixed << std::setprecision(2) << htmlinfo_ana[i]->val;
+                    temp_string = stream.str();
+
                     // Numbers greater than 10 and less than 0 indicate NaN, since a Roi can only have values ​​from 0 to 9.
-                    if ((std::stod(zw) >= 10) || (std::stod(zw) < 0))
+                    if ((std::stof(temp_string) >= 10.00) || (std::stof(temp_string) < 0.00))
                     {
-                        zw = "NaN";
+                        temp_string = "NaN";
                     }
 
-                    txt += "<td style=\"width: 150px;\"><h4>" + zw + "</h4><p><img src=\"/img_tmp/" + htmlinfoana[i]->filename + "\"></p></td>\n";
-                    delete htmlinfoana[i];
+                    output_string += "<td style=\"width: 150px;\"><h4>" + temp_string + "</h4><p><img src=\"/img_tmp/" + htmlinfo_ana[i]->filename + "\"></p></td>\n";
+                    delete htmlinfo_ana[i];
                 }
 
-                htmlinfoana.clear();
+                htmlinfo_ana.clear();
 
-                txt += "</tr>\n</table>\n";
-                httpd_resp_sendstr_chunk(req, txt.c_str());
+                output_string += "</tr>\n</table>\n";
+                httpd_resp_sendstr_chunk(req, output_string.c_str());
 
                 /* Full Image
                  * Only show it after the image got taken */
-                txt = "<hr><h3>Full Image (current round)</h3>\n";
+                output_string = "<hr><h3>Full Image (current round)</h3>\n";
 
-                if ((*status == std::string("Initialization")) ||
-                    (*status == std::string("Initialization (delayed)")) ||
-                    (*status == std::string("Take Image")))
+                if ((*status == std::string("Initialization")) || (*status == std::string("Initialization (delayed)")) || (*status == std::string("Take Image")))
                 {
-                    txt += "<p>Current state: " + *status + "</p>\n";
+                    output_string += "<p>Current state: " + *status + "</p>\n";
                 }
                 else
                 {
-                    txt += "<img src=\"/img_tmp/alg_roi.jpg\">\n";
+                    output_string += "<img src=\"/img_tmp/alg_roi.jpg\">\n";
                 }
-                httpd_resp_sendstr_chunk(req, txt.c_str());
+                httpd_resp_sendstr_chunk(req, output_string.c_str());
             }
         }
 
@@ -791,19 +524,11 @@ esp_err_t handler_wasserzaehler(httpd_req_t *req)
         return ESP_ERR_NOT_FOUND;
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_wasserzaehler - Done");
-#endif
-
     return ESP_OK;
 }
 
 esp_err_t handler_editflow(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_editflow - Start");
-#endif
-
     ESP_LOGD(TAG, "handler_editflow uri: %s", req->uri);
 
     char _query[512];
@@ -814,9 +539,6 @@ esp_err_t handler_editflow(httpd_req_t *req)
     {
         if (httpd_query_key_value(_query, "task", _valuechar, 30) == ESP_OK)
         {
-#ifdef DEBUG_DETAIL_ON
-            ESP_LOGD(TAG, "task is found: %s", _valuechar);
-#endif
             _task = std::string(_valuechar);
         }
     }
@@ -827,13 +549,13 @@ esp_err_t handler_editflow(httpd_req_t *req)
         return get_numbers_file_handler(req);
     }
 
-    if (_task.compare("data") == 0)
+    else if (_task.compare("data") == 0)
     {
         ESP_LOGD(TAG, "Get data list");
         return get_data_file_handler(req);
     }
 
-    if (_task.compare("tflite") == 0)
+    else if (_task.compare("tflite") == 0)
     {
         ESP_LOGD(TAG, "Get tflite list");
         return get_tflite_file_handler(req);
@@ -848,15 +570,10 @@ esp_err_t handler_editflow(httpd_req_t *req)
         httpd_query_key_value(_query, "out", _valuechar, 30);
         out = std::string(_valuechar);
 
-#ifdef DEBUG_DETAIL_ON
-        ESP_LOGD(TAG, "in: %s", in.c_str());
-        ESP_LOGD(TAG, "out: %s", out.c_str());
-#endif
-
         in = "/sdcard" + in;
         out = "/sdcard" + out;
 
-        CopyFile(in, out);
+        copy_file(in, out);
         zw = "Copy Done";
         httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
         httpd_resp_send(req, zw.c_str(), zw.length());
@@ -876,40 +593,31 @@ esp_err_t handler_editflow(httpd_req_t *req)
 
         httpd_query_key_value(_query, "x", _valuechar, 30);
         std::string _x = std::string(_valuechar);
-        if (isStringNumeric(_x))
+        if (is_string_numeric(_x))
         {
             x = std::stoi(_x);
         }
 
         httpd_query_key_value(_query, "y", _valuechar, 30);
         std::string _y = std::string(_valuechar);
-        if (isStringNumeric(_y))
+        if (is_string_numeric(_y))
         {
             y = std::stoi(_y);
         }
 
         httpd_query_key_value(_query, "dx", _valuechar, 30);
         std::string _dx = std::string(_valuechar);
-        if (isStringNumeric(_dx))
+        if (is_string_numeric(_dx))
         {
             dx = std::stoi(_dx);
         }
 
         httpd_query_key_value(_query, "dy", _valuechar, 30);
         std::string _dy = std::string(_valuechar);
-        if (isStringNumeric(_dy))
+        if (is_string_numeric(_dy))
         {
             dy = std::stoi(_dy);
         }
-
-#ifdef DEBUG_DETAIL_ON
-        ESP_LOGD(TAG, "in: %s", in.c_str());
-        ESP_LOGD(TAG, "out: %s", out.c_str());
-        ESP_LOGD(TAG, "x: %s", _x.c_str());
-        ESP_LOGD(TAG, "y: %s", _y.c_str());
-        ESP_LOGD(TAG, "dx: %s", _dx.c_str());
-        ESP_LOGD(TAG, "dy: %s", _dy.c_str());
-#endif
 
         if (httpd_query_key_value(_query, "enhance", _valuechar, 10) == ESP_OK)
         {
@@ -926,7 +634,8 @@ esp_err_t handler_editflow(httpd_req_t *req)
 
         std::string out2 = out.substr(0, out.length() - 4) + "_org.jpg";
 
-        if ((flowctrl.SetupModeActive || (*flowctrl.getActStatus() == std::string("Flow finished"))) && psram_init_shared_memory_for_take_image_step())
+        // if ((flowctrl.SetupModeActive || (*flowctrl.getActStatus() == std::string("Flow finished"))) && psram_init_shared_memory_for_take_image_step())
+        if ((flowctrl.SetupModeActive || (*flowctrl.getActStatus() != std::string("Take Image"))) && psram_init_shared_memory_for_take_image_step())
         {
             LogFile.WriteToFile(ESP_LOG_INFO, TAG, "Taking image for Alignment Mark Update...");
 
@@ -960,14 +669,15 @@ esp_err_t handler_editflow(httpd_req_t *req)
     // wird beim Erstellen eines neuen Referenzbildes aufgerufen
     std::string *sys_status = flowctrl.getActStatus();
 
-    if ((sys_status->c_str() != std::string("Take Image")) && (sys_status->c_str() != std::string("Aligning")))
+    // if ((sys_status->c_str() != std::string("Take Image")) && (sys_status->c_str() != std::string("Aligning")))
+    if (sys_status->c_str() != std::string("Take Image"))
     {
         if ((_task.compare("test_take") == 0) || (_task.compare("cam_settings") == 0))
         {
             std::string _host = "";
 
             // laden der aktuellen Kameraeinstellungen(CCstatus) in den Zwischenspeicher(CFstatus)
-            setCCstatusToCFstatus(); // CCstatus >>> CFstatus
+            Camera.set_camera_config_from_to(&CCstatus, &CFstatus); // CCstatus >>> CFstatus
 
             if (httpd_query_key_value(_query, "host", _valuechar, 30) == ESP_OK)
             {
@@ -977,63 +687,80 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "waitb", _valuechar, 30) == ESP_OK)
             {
                 std::string _waitb = std::string(_valuechar);
-                if (isStringNumeric(_waitb))
+                if (is_string_numeric(_waitb))
                 {
                     CFstatus.WaitBeforePicture = std::stoi(_valuechar);
+                }
+            }
+
+            if (httpd_query_key_value(_query, "xclk", _valuechar, sizeof(_valuechar)) == ESP_OK)
+            {
+                std::string temp_xclk = std::string(_valuechar);
+                if (is_string_numeric(temp_xclk))
+                {
+                    int temp_xclk_ = std::stoi(_valuechar);
+                    CFstatus.CamXclkFreqMhz = clip_int(temp_xclk_, 20, 1);
                 }
             }
 
             if (httpd_query_key_value(_query, "aecgc", _valuechar, 30) == ESP_OK)
             {
                 std::string _aecgc = std::string(_valuechar);
-                if (isStringNumeric(_aecgc))
+                if (is_string_numeric(_aecgc))
                 {
                     int _aecgc_ = std::stoi(_valuechar);
                     switch (_aecgc_)
                     {
-                        case 1:
-                            CFstatus.ImageGainceiling = GAINCEILING_4X; 
-                            break;
-                        case 2:
-                            CFstatus.ImageGainceiling = GAINCEILING_8X; 
-                            break;
-                        case 3:
-                            CFstatus.ImageGainceiling = GAINCEILING_16X; 
-                            break;
-                        case 4:
-                            CFstatus.ImageGainceiling = GAINCEILING_32X; 
-                            break;
-                        case 5:
-                            CFstatus.ImageGainceiling = GAINCEILING_64X; 
-                            break;
-                        case 6:
-                            CFstatus.ImageGainceiling = GAINCEILING_128X; 
-                            break;
-                        default:
-                            CFstatus.ImageGainceiling = GAINCEILING_2X;
+                    case 1:
+                        CFstatus.ImageGainceiling = GAINCEILING_4X;
+                        break;
+                    case 2:
+                        CFstatus.ImageGainceiling = GAINCEILING_8X;
+                        break;
+                    case 3:
+                        CFstatus.ImageGainceiling = GAINCEILING_16X;
+                        break;
+                    case 4:
+                        CFstatus.ImageGainceiling = GAINCEILING_32X;
+                        break;
+                    case 5:
+                        CFstatus.ImageGainceiling = GAINCEILING_64X;
+                        break;
+                    case 6:
+                        CFstatus.ImageGainceiling = GAINCEILING_128X;
+                        break;
+                    default:
+                        CFstatus.ImageGainceiling = GAINCEILING_2X;
                     }
                 }
                 else
                 {
-                    if (_aecgc == "X4") {
+                    if (_aecgc == "X4")
+                    {
                         CFstatus.ImageGainceiling = GAINCEILING_4X;
                     }
-                    else if (_aecgc == "X8") {
+                    else if (_aecgc == "X8")
+                    {
                         CFstatus.ImageGainceiling = GAINCEILING_8X;
                     }
-                    else if (_aecgc == "X16") {
+                    else if (_aecgc == "X16")
+                    {
                         CFstatus.ImageGainceiling = GAINCEILING_16X;
                     }
-                    else if (_aecgc == "X32") {
+                    else if (_aecgc == "X32")
+                    {
                         CFstatus.ImageGainceiling = GAINCEILING_32X;
                     }
-                    else if (_aecgc == "X64") {
+                    else if (_aecgc == "X64")
+                    {
                         CFstatus.ImageGainceiling = GAINCEILING_64X;
                     }
-                    else if (_aecgc == "X128") {
+                    else if (_aecgc == "X128")
+                    {
                         CFstatus.ImageGainceiling = GAINCEILING_128X;
                     }
-                    else {
+                    else
+                    {
                         CFstatus.ImageGainceiling = GAINCEILING_2X;
                     }
                 }
@@ -1042,56 +769,56 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "qual", _valuechar, 30) == ESP_OK)
             {
                 std::string _qual = std::string(_valuechar);
-                if (isStringNumeric(_qual))
+                if (is_string_numeric(_qual))
                 {
                     int _qual_ = std::stoi(_valuechar);
-                    CFstatus.ImageQuality = clipInt(_qual_, 63, 6);
+                    CFstatus.ImageQuality = clip_int(_qual_, 63, 6);
                 }
             }
 
             if (httpd_query_key_value(_query, "bri", _valuechar, 30) == ESP_OK)
             {
                 std::string _bri = std::string(_valuechar);
-                if (isStringNumeric(_bri))
+                if (is_string_numeric(_bri))
                 {
                     int _bri_ = std::stoi(_valuechar);
-                    CFstatus.ImageBrightness = clipInt(_bri_, 2, -2);
+                    CFstatus.ImageBrightness = clip_int(_bri_, 2, -2);
                 }
             }
 
             if (httpd_query_key_value(_query, "con", _valuechar, 30) == ESP_OK)
             {
                 std::string _con = std::string(_valuechar);
-                if (isStringNumeric(_con))
+                if (is_string_numeric(_con))
                 {
                     int _con_ = std::stoi(_valuechar);
-                    CFstatus.ImageContrast = clipInt(_con_, 2, -2);
+                    CFstatus.ImageContrast = clip_int(_con_, 2, -2);
                 }
             }
 
             if (httpd_query_key_value(_query, "sat", _valuechar, 30) == ESP_OK)
             {
                 std::string _sat = std::string(_valuechar);
-                if (isStringNumeric(_sat))
+                if (is_string_numeric(_sat))
                 {
                     int _sat_ = std::stoi(_valuechar);
-                    CFstatus.ImageSaturation = clipInt(_sat_, 2, -2);
+                    CFstatus.ImageSaturation = clip_int(_sat_, 2, -2);
                 }
             }
 
             if (httpd_query_key_value(_query, "shp", _valuechar, 30) == ESP_OK)
             {
                 std::string _shp = std::string(_valuechar);
-                if (isStringNumeric(_shp))
+                if (is_string_numeric(_shp))
                 {
                     int _shp_ = std::stoi(_valuechar);
-                    if (CCstatus.CamSensor_id == OV2640_PID)
+                    if (Camera.CamSensorId == OV2640_PID)
                     {
-                        CFstatus.ImageSharpness = clipInt(_shp_, 2, -2);
+                        CFstatus.ImageSharpness = clip_int(_shp_, 2, -2);
                     }
                     else
                     {
-                        CFstatus.ImageSharpness = clipInt(_shp_, 3, -3);
+                        CFstatus.ImageSharpness = clip_int(_shp_, 3, -3);
                     }
                 }
             }
@@ -1099,38 +826,45 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "ashp", _valuechar, 30) == ESP_OK)
             {
                 std::string _ashp = std::string(_valuechar);
-                CFstatus.ImageAutoSharpness = alphanumericToBoolean(_ashp);
+                CFstatus.ImageAutoSharpness = alphanumeric_to_boolean(_ashp);
             }
 
             if (httpd_query_key_value(_query, "spe", _valuechar, 30) == ESP_OK)
             {
                 std::string _spe = std::string(_valuechar);
-                if (isStringNumeric(_spe))
+                if (is_string_numeric(_spe))
                 {
                     int _spe_ = std::stoi(_valuechar);
-                    CFstatus.ImageSpecialEffect = clipInt(_spe_, 6, 0);
+                    CFstatus.ImageSpecialEffect = clip_int(_spe_, 6, 0);
                 }
                 else
                 {
-                    if (_spe == "negative") {
+                    if (_spe == "negative")
+                    {
                         CFstatus.ImageSpecialEffect = 1;
                     }
-                    else if (_spe == "grayscale") {
+                    else if (_spe == "grayscale")
+                    {
                         CFstatus.ImageSpecialEffect = 2;
                     }
-                    else if (_spe == "red") {
+                    else if (_spe == "red")
+                    {
                         CFstatus.ImageSpecialEffect = 3;
                     }
-                    else if (_spe == "green") {
+                    else if (_spe == "green")
+                    {
                         CFstatus.ImageSpecialEffect = 4;
                     }
-                    else if (_spe == "blue") {
+                    else if (_spe == "blue")
+                    {
                         CFstatus.ImageSpecialEffect = 5;
                     }
-                    else if (_spe == "retro") {
+                    else if (_spe == "retro")
+                    {
                         CFstatus.ImageSpecialEffect = 6;
                     }
-                    else {
+                    else
+                    {
                         CFstatus.ImageSpecialEffect = 0;
                     }
                 }
@@ -1139,26 +873,31 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "wbm", _valuechar, 30) == ESP_OK)
             {
                 std::string _wbm = std::string(_valuechar);
-                if (isStringNumeric(_wbm))
+                if (is_string_numeric(_wbm))
                 {
                     int _wbm_ = std::stoi(_valuechar);
-                    CFstatus.ImageWbMode = clipInt(_wbm_, 4, 0);
+                    CFstatus.ImageWbMode = clip_int(_wbm_, 4, 0);
                 }
                 else
                 {
-                    if (_wbm == "sunny") {
+                    if (_wbm == "sunny")
+                    {
                         CFstatus.ImageWbMode = 1;
                     }
-                    else if (_wbm == "cloudy") {
+                    else if (_wbm == "cloudy")
+                    {
                         CFstatus.ImageWbMode = 2;
                     }
-                    else if (_wbm == "office") {
+                    else if (_wbm == "office")
+                    {
                         CFstatus.ImageWbMode = 3;
                     }
-                    else if (_wbm == "home") {
+                    else if (_wbm == "home")
+                    {
                         CFstatus.ImageWbMode = 4;
                     }
-                    else {
+                    else
+                    {
                         CFstatus.ImageWbMode = 0;
                     }
                 }
@@ -1167,40 +906,40 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "awb", _valuechar, 30) == ESP_OK)
             {
                 std::string _awb = std::string(_valuechar);
-                CFstatus.ImageAwb = alphanumericToBoolean(_awb);
+                CFstatus.ImageAwb = alphanumeric_to_boolean(_awb);
             }
 
             if (httpd_query_key_value(_query, "awbg", _valuechar, 30) == ESP_OK)
             {
                 std::string _awbg = std::string(_valuechar);
-                CFstatus.ImageAwbGain = alphanumericToBoolean(_awbg);
+                CFstatus.ImageAwbGain = alphanumeric_to_boolean(_awbg);
             }
 
             if (httpd_query_key_value(_query, "aec", _valuechar, 30) == ESP_OK)
             {
                 std::string _aec = std::string(_valuechar);
-                CFstatus.ImageAec = alphanumericToBoolean(_aec);
+                CFstatus.ImageAec = alphanumeric_to_boolean(_aec);
             }
 
             if (httpd_query_key_value(_query, "aec2", _valuechar, 30) == ESP_OK)
             {
                 std::string _aec2 = std::string(_valuechar);
-                CFstatus.ImageAec2 = alphanumericToBoolean(_aec2);
+                CFstatus.ImageAec2 = alphanumeric_to_boolean(_aec2);
             }
 
             if (httpd_query_key_value(_query, "ael", _valuechar, 30) == ESP_OK)
             {
                 std::string _ael = std::string(_valuechar);
-                if (isStringNumeric(_ael))
+                if (is_string_numeric(_ael))
                 {
                     int _ael_ = std::stoi(_valuechar);
-                    if (CCstatus.CamSensor_id == OV2640_PID)
+                    if (Camera.CamSensorId == OV2640_PID)
                     {
-                        CFstatus.ImageAeLevel = clipInt(_ael_, 2, -2);
+                        CFstatus.ImageAeLevel = clip_int(_ael_, 2, -2);
                     }
                     else
                     {
-                        CFstatus.ImageAeLevel = clipInt(_ael_, 5, -5);
+                        CFstatus.ImageAeLevel = clip_int(_ael_, 5, -5);
                     }
                 }
             }
@@ -1208,84 +947,84 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "aecv", _valuechar, 30) == ESP_OK)
             {
                 std::string _aecv = std::string(_valuechar);
-                if (isStringNumeric(_aecv))
+                if (is_string_numeric(_aecv))
                 {
                     int _aecv_ = std::stoi(_valuechar);
-                    CFstatus.ImageAecValue = clipInt(_aecv_, 1200, 0);
+                    CFstatus.ImageAecValue = clip_int(_aecv_, 1200, 0);
                 }
             }
 
             if (httpd_query_key_value(_query, "agc", _valuechar, 30) == ESP_OK)
             {
                 std::string _agc = std::string(_valuechar);
-                CFstatus.ImageAgc = alphanumericToBoolean(_agc);
+                CFstatus.ImageAgc = alphanumeric_to_boolean(_agc);
             }
 
             if (httpd_query_key_value(_query, "agcg", _valuechar, 30) == ESP_OK)
             {
                 std::string _agcg = std::string(_valuechar);
-                if (isStringNumeric(_agcg))
+                if (is_string_numeric(_agcg))
                 {
                     int _agcg_ = std::stoi(_valuechar);
-                    CFstatus.ImageAgcGain = clipInt(_agcg_, 30, 0);
+                    CFstatus.ImageAgcGain = clip_int(_agcg_, 30, 0);
                 }
             }
 
             if (httpd_query_key_value(_query, "bpc", _valuechar, 30) == ESP_OK)
             {
                 std::string _bpc = std::string(_valuechar);
-                CFstatus.ImageBpc = alphanumericToBoolean(_bpc);
+                CFstatus.ImageBpc = alphanumeric_to_boolean(_bpc);
             }
 
             if (httpd_query_key_value(_query, "wpc", _valuechar, 30) == ESP_OK)
             {
                 std::string _wpc = std::string(_valuechar);
-                CFstatus.ImageWpc = alphanumericToBoolean(_wpc);
+                CFstatus.ImageWpc = alphanumeric_to_boolean(_wpc);
             }
 
             if (httpd_query_key_value(_query, "rgma", _valuechar, 30) == ESP_OK)
             {
                 std::string _rgma = std::string(_valuechar);
-                CFstatus.ImageRawGma = alphanumericToBoolean(_rgma);
+                CFstatus.ImageRawGma = alphanumeric_to_boolean(_rgma);
             }
 
             if (httpd_query_key_value(_query, "lenc", _valuechar, 30) == ESP_OK)
             {
                 std::string _lenc = std::string(_valuechar);
-                CFstatus.ImageLenc = alphanumericToBoolean(_lenc);
+                CFstatus.ImageLenc = alphanumeric_to_boolean(_lenc);
             }
 
             if (httpd_query_key_value(_query, "mirror", _valuechar, 30) == ESP_OK)
             {
                 std::string _mirror = std::string(_valuechar);
-                CFstatus.ImageHmirror = alphanumericToBoolean(_mirror);
+                CFstatus.ImageHmirror = alphanumeric_to_boolean(_mirror);
             }
 
             if (httpd_query_key_value(_query, "flip", _valuechar, 30) == ESP_OK)
             {
                 std::string _flip = std::string(_valuechar);
-                CFstatus.ImageVflip = alphanumericToBoolean(_flip);
+                CFstatus.ImageVflip = alphanumeric_to_boolean(_flip);
             }
 
             if (httpd_query_key_value(_query, "dcw", _valuechar, 30) == ESP_OK)
             {
                 std::string _dcw = std::string(_valuechar);
-                CFstatus.ImageDcw = alphanumericToBoolean(_dcw);
+                CFstatus.ImageDcw = alphanumeric_to_boolean(_dcw);
             }
 
             if (httpd_query_key_value(_query, "den", _valuechar, 30) == ESP_OK)
             {
                 std::string _idlv = std::string(_valuechar);
-                if (isStringNumeric(_idlv))
+                if (is_string_numeric(_idlv))
                 {
                     int _ImageDenoiseLevel = std::stoi(_valuechar);
-                    if (CCstatus.CamSensor_id == OV2640_PID)
+                    if (Camera.CamSensorId == OV2640_PID)
                     {
                         CFstatus.ImageDenoiseLevel = 0;
                     }
                     else
                     {
-                        CFstatus.ImageDenoiseLevel = clipInt(_ImageDenoiseLevel, 8, 0);
+                        CFstatus.ImageDenoiseLevel = clip_int(_ImageDenoiseLevel, 8, 0);
                     }
                 }
             }
@@ -1293,26 +1032,26 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "zoom", _valuechar, 30) == ESP_OK)
             {
                 std::string _zoom = std::string(_valuechar);
-                CFstatus.ImageZoomEnabled = alphanumericToBoolean(_zoom);
+                CFstatus.ImageZoomEnabled = alphanumeric_to_boolean(_zoom);
             }
 
             if (httpd_query_key_value(_query, "zoomx", _valuechar, 30) == ESP_OK)
             {
                 std::string _zoomx = std::string(_valuechar);
-                if (isStringNumeric(_zoomx))
+                if (is_string_numeric(_zoomx))
                 {
                     int _ImageZoomOffsetX = std::stoi(_valuechar);
-                    if (CCstatus.CamSensor_id == OV2640_PID)
+                    if (Camera.CamSensorId == OV2640_PID)
                     {
-                        CFstatus.ImageZoomOffsetX = clipInt(_ImageZoomOffsetX, 480, -480);
+                        CFstatus.ImageZoomOffsetX = clip_int(_ImageZoomOffsetX, 480, -480);
                     }
-                    else if (CCstatus.CamSensor_id == OV3660_PID)
+                    else if (Camera.CamSensorId == OV3660_PID)
                     {
-                        CFstatus.ImageZoomOffsetX = clipInt(_ImageZoomOffsetX, 704, -704);
+                        CFstatus.ImageZoomOffsetX = clip_int(_ImageZoomOffsetX, 704, -704);
                     }
-                    else if (CCstatus.CamSensor_id == OV5640_PID)
+                    else if (Camera.CamSensorId == OV5640_PID)
                     {
-                        CFstatus.ImageZoomOffsetX = clipInt(_ImageZoomOffsetX, 960, -960);
+                        CFstatus.ImageZoomOffsetX = clip_int(_ImageZoomOffsetX, 960, -960);
                     }
                 }
             }
@@ -1320,20 +1059,20 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "zoomy", _valuechar, 30) == ESP_OK)
             {
                 std::string _zoomy = std::string(_valuechar);
-                if (isStringNumeric(_zoomy))
+                if (is_string_numeric(_zoomy))
                 {
                     int _ImageZoomOffsetY = std::stoi(_valuechar);
-                    if (CCstatus.CamSensor_id == OV2640_PID)
+                    if (Camera.CamSensorId == OV2640_PID)
                     {
-                        CFstatus.ImageZoomOffsetY = clipInt(_ImageZoomOffsetY, 360, -360);
+                        CFstatus.ImageZoomOffsetY = clip_int(_ImageZoomOffsetY, 360, -360);
                     }
-                    else if (CCstatus.CamSensor_id == OV3660_PID)
+                    else if (Camera.CamSensorId == OV3660_PID)
                     {
-                        CFstatus.ImageZoomOffsetY = clipInt(_ImageZoomOffsetY, 528, -528);
+                        CFstatus.ImageZoomOffsetY = clip_int(_ImageZoomOffsetY, 528, -528);
                     }
-                    else if (CCstatus.CamSensor_id == OV5640_PID)
+                    else if (Camera.CamSensorId == OV5640_PID)
                     {
-                        CFstatus.ImageZoomOffsetY = clipInt(_ImageZoomOffsetY, 720, -720);
+                        CFstatus.ImageZoomOffsetY = clip_int(_ImageZoomOffsetY, 720, -720);
                     }
                 }
             }
@@ -1341,20 +1080,20 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "zooms", _valuechar, 30) == ESP_OK)
             {
                 std::string _zooms = std::string(_valuechar);
-                if (isStringNumeric(_zooms))
+                if (is_string_numeric(_zooms))
                 {
                     int _ImageZoomSize = std::stoi(_valuechar);
-                    if (CCstatus.CamSensor_id == OV2640_PID)
+                    if (Camera.CamSensorId == OV2640_PID)
                     {
-                        CFstatus.ImageZoomSize = clipInt(_ImageZoomSize, 29, 0);
+                        CFstatus.ImageZoomSize = clip_int(_ImageZoomSize, 29, 0);
                     }
-                    else if (CCstatus.CamSensor_id == OV3660_PID)
+                    else if (Camera.CamSensorId == OV3660_PID)
                     {
-                        CFstatus.ImageZoomSize = clipInt(_ImageZoomSize, 43, 0);
+                        CFstatus.ImageZoomSize = clip_int(_ImageZoomSize, 43, 0);
                     }
-                    else if (CCstatus.CamSensor_id == OV5640_PID)
+                    else if (Camera.CamSensorId == OV5640_PID)
                     {
-                        CFstatus.ImageZoomSize = clipInt(_ImageZoomSize, 59, 0);
+                        CFstatus.ImageZoomSize = clip_int(_ImageZoomSize, 59, 0);
                     }
                 }
             }
@@ -1362,20 +1101,21 @@ esp_err_t handler_editflow(httpd_req_t *req)
             if (httpd_query_key_value(_query, "ledi", _valuechar, 30) == ESP_OK)
             {
                 std::string _ledi = std::string(_valuechar);
-                if (isStringNumeric(_ledi))
+                if (is_string_numeric(_ledi))
                 {
                     int _ImageLedIntensity = std::stoi(_valuechar);
-                    CFstatus.ImageLedIntensity = Camera.SetLEDIntensity(_ImageLedIntensity);
+                    CFstatus.ImageLedIntensity = Camera.set_led_intensity(_ImageLedIntensity);
                 }
             }
 
             if (_task.compare("cam_settings") == 0)
             {
                 // wird aufgerufen, wenn das Referenzbild + Kameraeinstellungen gespeichert wurden
-                setCFstatusToCCstatus(); // CFstatus >>> CCstatus
+                Camera.set_camera_config_from_to(&CFstatus, &CCstatus); // CFstatus >>> CCstatus
 
                 // Kameraeinstellungen wurden verädert
-                CFstatus.changedCameraSettings = true;
+                Camera.changedCameraSettings = true;
+                Camera.CamTempImage = false;
 
                 ESP_LOGD(TAG, "Cam Settings set");
                 std::string _zw = "CamSettingsSet";
@@ -1385,14 +1125,9 @@ esp_err_t handler_editflow(httpd_req_t *req)
             else
             {
                 // wird aufgerufen, wenn ein neues Referenzbild erstellt oder aktualisiert wurde
-                // CFstatus >>> Kamera
-                setCFstatusToCam();
-
-                Camera.SetQualityZoomSize(CFstatus.ImageQuality, CFstatus.ImageFrameSize, CFstatus.ImageZoomEnabled, CFstatus.ImageZoomOffsetX, CFstatus.ImageZoomOffsetY, CFstatus.ImageZoomSize, CFstatus.ImageVflip);
-                // Camera.SetZoomSize(CFstatus.ImageZoomEnabled, CFstatus.ImageZoomOffsetX, CFstatus.ImageZoomOffsetY, CFstatus.ImageZoomSize, CFstatus.ImageVflip);
-
                 // Kameraeinstellungen wurden verädert
-                CFstatus.changedCameraSettings = true;
+                Camera.changedCameraSettings = true;
+                Camera.CamTempImage = true;
 
                 ESP_LOGD(TAG, "test_take - vor TakeImage");
                 std::string image_temp = flowctrl.doSingleStep("[TakeImage]", _host);
@@ -1422,28 +1157,16 @@ esp_err_t handler_editflow(httpd_req_t *req)
         httpd_resp_send(req, _zw.c_str(), _zw.length());
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_editflow - Done");
-#endif
-
     return ESP_OK;
 }
 
 esp_err_t handler_statusflow(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_statusflow - Start");
-#endif
-
     const char *resp_str;
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
     if (bTaskAutoFlowCreated)
     {
-#ifdef DEBUG_DETAIL_ON
-        ESP_LOGD(TAG, "handler_statusflow: %s", req->uri);
-#endif
-
         string *zw = flowctrl.getActStatusWithTime();
         resp_str = zw->c_str();
 
@@ -1455,39 +1178,23 @@ esp_err_t handler_statusflow(httpd_req_t *req)
         httpd_resp_send(req, resp_str, HTTPD_RESP_USE_STRLEN);
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_statusflow - Done");
-#endif
-
     return ESP_OK;
 }
 
 esp_err_t handler_cputemp(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_cputemp - Start");
-#endif
-
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_send(req, std::to_string((int)temperatureRead()).c_str(), HTTPD_RESP_USE_STRLEN);
-
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_cputemp - End");
-#endif
+    httpd_resp_send(req, std::to_string((int)read_tempsensor()).c_str(), HTTPD_RESP_USE_STRLEN);
 
     return ESP_OK;
 }
 
 esp_err_t handler_rssi(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_rssi - Start");
-#endif
-
-    if (getWIFIisConnected())
+    if (get_wifi_sta_is_connected())
     {
         httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-        httpd_resp_send(req, std::to_string(get_WIFI_RSSI()).c_str(), HTTPD_RESP_USE_STRLEN);
+        httpd_resp_send(req, std::to_string(get_wifi_rssi()).c_str(), HTTPD_RESP_USE_STRLEN);
     }
     else
     {
@@ -1495,19 +1202,11 @@ esp_err_t handler_rssi(httpd_req_t *req)
         return ESP_ERR_NOT_FOUND;
     }
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_rssi - End");
-#endif
-
     return ESP_OK;
 }
 
 esp_err_t handler_current_date(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_uptime - Start");
-#endif
-
     std::string formatedDateAndTime = getCurrentTimeString("%Y-%m-%d %H:%M:%S");
     // std::string formatedDate = getCurrentTimeString("%Y-%m-%d");
 
@@ -1517,38 +1216,21 @@ esp_err_t handler_current_date(httpd_req_t *req)
     /* Respond with an empty chunk to signal HTTP response completion */
     httpd_resp_sendstr_chunk(req, NULL);
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_uptime - End");
-#endif
-
     return ESP_OK;
 }
 
 esp_err_t handler_uptime(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_uptime - Start");
-#endif
-
-    std::string formatedUptime = getFormatedUptime(false);
+    std::string formatedUptime = get_formated_uptime(false);
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_send(req, formatedUptime.c_str(), formatedUptime.length());
-
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_uptime - End");
-#endif
 
     return ESP_OK;
 }
 
 esp_err_t handler_prevalue(httpd_req_t *req)
 {
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_prevalue - Start");
-    ESP_LOGD(TAG, "handler_prevalue: %s", req->uri);
-#endif
-
     // Default usage message when handler gets called without any parameter
     const std::string RESTUsageInfo =
         "00: Handler usage:<br>"
@@ -1569,10 +1251,6 @@ esp_err_t handler_prevalue(httpd_req_t *req)
 
     if (httpd_req_get_url_query_str(req, _query, 100) == ESP_OK)
     {
-#ifdef DEBUG_DETAIL_ON
-        ESP_LOGD(TAG, "Query: %s", _query);
-#endif
-
         if (httpd_query_key_value(_query, "numbers", _numbersname, 50) != ESP_OK)
         {
             // If request is incomplete
@@ -1584,9 +1262,7 @@ esp_err_t handler_prevalue(httpd_req_t *req)
 
         if (httpd_query_key_value(_query, "value", _value, 20) == ESP_OK)
         {
-#ifdef DEBUG_DETAIL_ON
-            ESP_LOGD(TAG, "Value: %s", _value);
-#endif
+            ESP_LOGD(TAG, "handler_prevalue() - Value: %s", _value);
         }
     }
     else
@@ -1633,10 +1309,6 @@ esp_err_t handler_prevalue(httpd_req_t *req)
 
     httpd_resp_send(req, sReturnMessage.c_str(), sReturnMessage.length());
 
-#ifdef DEBUG_DETAIL_ON
-    LogFile.WriteHeapInfo("handler_prevalue - End");
-#endif
-
     return ESP_OK;
 }
 
@@ -1649,13 +1321,10 @@ void task_autodoFlow(void *pvParameter)
     if (!isPlannedReboot && (esp_reset_reason() == ESP_RST_PANIC))
     {
         flowctrl.setActStatus("Initialization (delayed)");
-        // #ifdef ENABLE_MQTT
-        // MQTTPublish(mqttServer_getMainTopic() + "/" + "status", "Initialization (delayed)", false); // Right now, not possible -> MQTT Service is going to be started later
-        // #endif //ENABLE_MQTT
         vTaskDelay(60 * 5000 / portTICK_PERIOD_MS); // Wait 5 minutes to give time to do an OTA update or fetch the log
     }
 
-    ESP_LOGD(TAG, "task_autodoFlow: start");
+    ESP_LOGD(TAG, "task_autodoFlow(): start");
     doInit();
 
     flowctrl.setAutoStartInterval(auto_interval);
@@ -1663,26 +1332,23 @@ void task_autodoFlow(void *pvParameter)
 
     if (isSetupModusActive())
     {
-        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "We are in Setup Mode -> Not starting Auto Flow!");
+        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "task_autodoFlow(): We are in Setup Mode -> Not starting Auto Flow!");
         autostartIsEnabled = false;
-        // 15.7.0 Setup Wizard cannot take a Reference Picture #2953
-        // std::string zw_time = getCurrentTimeString(LOGFILE_TIME_FORMAT);
-        // flowctrl.doFlowTakeImageOnly(zw_time);
     }
 
     if (autostartIsEnabled)
     {
-        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "Starting Flow...");
+        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "task_autodoFlow(): Starting Flow...");
     }
     else
     {
-        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "Autostart is not enabled -> Not starting Flow");
+        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "task_autodoFlow(): Autostart is not enabled -> Not starting Flow");
     }
 
     while (autostartIsEnabled)
     {
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "----------------------------------------------------------------"); // Clear separation between runs
-        time_t roundStartTime = getUpTime();
+        time_t roundStartTime = get_uptime();
 
         std::string _zw = "Round #" + std::to_string(++countRounds) + " started";
         LogFile.WriteToFile(ESP_LOG_INFO, TAG, _zw);
@@ -1691,56 +1357,54 @@ void task_autodoFlow(void *pvParameter)
 
         if (flowisrunning)
         {
-#ifdef DEBUG_DETAIL_ON
-            ESP_LOGD(TAG, "Autoflow: doFlow is already running!");
-#endif
+            ESP_LOGD(TAG, "task_autodoFlow(): doFlow is already running!");
         }
         else
         {
-#ifdef DEBUG_DETAIL_ON
-            ESP_LOGD(TAG, "Autoflow: doFlow is started");
-#endif
+            ESP_LOGD(TAG, "task_autodoFlow(): doFlow is started");
             flowisrunning = true;
             doflow();
-#ifdef DEBUG_DETAIL_ON
-            ESP_LOGD(TAG, "Remove older log files");
-#endif
+
+            ESP_LOGD(TAG, "task_autodoFlow(): Remove older log files");
             LogFile.RemoveOldLogFile();
             LogFile.RemoveOldDataLog();
         }
 
         // Round finished -> Logfile
-        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "Round #" + std::to_string(countRounds) + " completed (" + std::to_string(getUpTime() - roundStartTime) + " seconds)");
+        LogFile.WriteToFile(ESP_LOG_INFO, TAG, "Round #" + std::to_string(countRounds) + " completed (" + std::to_string(get_uptime() - roundStartTime) + " seconds)");
 
         // CPU Temp -> Logfile
-        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "CPU Temperature: " + std::to_string((int)temperatureRead()) + "°C");
+        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "CPU Temperature: " + std::to_string((int)read_tempsensor()) + "°C");
 
-        // WIFI Signal Strength (RSSI) -> Logfile
-        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "WIFI Signal (RSSI): " + std::to_string(get_WIFI_RSSI()) + "dBm");
-
-        // Check if time is synchronized (if NTP is configured)
-        if (getUseNtp() && !getTimeIsSet())
+        if (network_config.connection_type != NETWORK_CONNECTION_DISCONNECT)
         {
-            LogFile.WriteToFile(ESP_LOG_WARN, TAG, "Time server is configured, but time is not yet set!");
-            StatusLED(TIME_CHECK, 1, false);
-        }
+            // WIFI Signal Strength (RSSI) -> Logfile
+            LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "WIFI Signal (RSSI): " + std::to_string(get_wifi_rssi()) + "dBm");
+
+            // Check if time is synchronized (if NTP is configured)
+            if (getUseNtp() && !getTimeIsSet())
+            {
+                LogFile.WriteToFile(ESP_LOG_WARN, TAG, "task_autodoFlow(): Time server is configured, but time is not yet set!");
+                set_status_led(TIME_CHECK, 1, false);
+            }
 
 #if (defined WLAN_USE_MESH_ROAMING && defined WLAN_USE_MESH_ROAMING_ACTIVATE_CLIENT_TRIGGERED_QUERIES)
-        wifiRoamingQuery();
+            wifiRoamingQuery();
 #endif
 
 // Scan channels and check if an AP with better RSSI is available, then disconnect and try to reconnect to AP with better RSSI
 // NOTE: Keep this direct before the following task delay, because scan is done in blocking mode and this takes ca. 1,5 - 2s.
 #ifdef WLAN_USE_ROAMING_BY_SCANNING
-        wifiRoamByScanning();
+            wifi_roaming_by_scanning();
 #endif
+        }
 
         fr_delta_ms = (esp_timer_get_time() - fr_start) / 1000;
 
         if (auto_interval > fr_delta_ms)
         {
             const TickType_t xDelay = (auto_interval - fr_delta_ms) / portTICK_PERIOD_MS;
-            ESP_LOGD(TAG, "Autoflow: sleep for: %ldms", (long)xDelay);
+            ESP_LOGD(TAG, "task_autodoFlow(): sleep for: %ldms", (long)xDelay);
             vTaskDelay(xDelay);
         }
     }
@@ -1754,14 +1418,14 @@ void task_autodoFlow(void *pvParameter)
     vTaskDelete(NULL); // Delete this task if it exits from the loop above
     xHandletask_autodoFlow = NULL;
 
-    ESP_LOGD(TAG, "task_autodoFlow: end");
+    ESP_LOGD(TAG, "task_autodoFlow(): end");
 }
 
 void InitializeFlowTask(void)
 {
     BaseType_t xReturned;
 
-    ESP_LOGD(TAG, "getESPHeapInfo: %s", getESPHeapInfo().c_str());
+    ESP_LOGD(TAG, "getESPHeapInfo: %s", get_heapinfo().c_str());
 
     uint32_t stackSize = 16 * 1024;
     xReturned = xTaskCreatePinnedToCore(&task_autodoFlow, "task_autodoFlow", stackSize, NULL, tskIDLE_PRIORITY + 2, &xHandletask_autodoFlow, 0);
@@ -1772,10 +1436,10 @@ void InitializeFlowTask(void)
         LogFile.WriteHeapInfo("Creation task_autodoFlow failed");
     }
 
-    ESP_LOGD(TAG, "getESPHeapInfo: %s", getESPHeapInfo().c_str());
+    ESP_LOGD(TAG, "getESPHeapInfo: %s", get_heapinfo().c_str());
 }
 
-void register_server_main_flow_task_uri(httpd_handle_t server)
+void main_flow_register_uri(httpd_handle_t server)
 {
     ESP_LOGI(TAG, "server_main_flow_task - Registering URI handlers");
 
@@ -1852,18 +1516,18 @@ void register_server_main_flow_task_uri(httpd_handle_t server)
 
     // Legacy API => New: "/value"
     camuri.uri = "/value.html";
-    camuri.handler = APPLY_BASIC_AUTH_FILTER(handler_wasserzaehler);
+    camuri.handler = APPLY_BASIC_AUTH_FILTER(handler_value);
     camuri.user_ctx = (void *)"Value";
     httpd_register_uri_handler(server, &camuri);
 
     camuri.uri = "/value";
-    camuri.handler = APPLY_BASIC_AUTH_FILTER(handler_wasserzaehler);
+    camuri.handler = APPLY_BASIC_AUTH_FILTER(handler_value);
     camuri.user_ctx = (void *)"Value";
     httpd_register_uri_handler(server, &camuri);
 
     // Legacy API => New: "/value"
     camuri.uri = "/wasserzaehler.html";
-    camuri.handler = APPLY_BASIC_AUTH_FILTER(handler_wasserzaehler);
+    camuri.handler = APPLY_BASIC_AUTH_FILTER(handler_value);
     camuri.user_ctx = (void *)"Wasserzaehler";
     httpd_register_uri_handler(server, &camuri);
 
