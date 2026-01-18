@@ -71,7 +71,7 @@ std::string ClassFlowCNNGeneral::getReadout(int _number = 0, bool _extendedResol
     if (CNNType == Analogue || CNNType == Analogue100)
     {
         float number = GENERAL[_number]->ROI[GENERAL[_number]->ROI.size() - 1]->result_float;
-        int result_after_decimal_point = ((int)floor(number * 10) + 10) % 10;
+        int result_after_decimal_point = ((int)floor(number * 10.0f) + 10) % 10;
 
         prev = PointerEvalAnalog(GENERAL[_number]->ROI[GENERAL[_number]->ROI.size() - 1]->result_float, prev);
         result = std::to_string(prev);
@@ -114,7 +114,7 @@ std::string ClassFlowCNNGeneral::getReadout(int _number = 0, bool _extendedResol
             // is only set if it is the first digit (no analogue before!)
             if (_extendedResolution)
             {
-                int result_after_decimal_point = ((int)floor(number * 10)) % 10;
+                int result_after_decimal_point = ((int)floor(number * 10.0f)) % 10;
                 int result_before_decimal_point = ((int)floor(number)) % 10;
 
                 result = std::to_string(result_before_decimal_point) + std::to_string(result_after_decimal_point);
@@ -193,7 +193,7 @@ std::string ClassFlowCNNGeneral::getReadout(int _number = 0, bool _extendedResol
 int ClassFlowCNNGeneral::PointerEvalHybrid(float number, float number_of_predecessors, int eval_predecessors, bool Analog_Predecessors, float digitAnalogTransitionStart)
 {
     int result = -1;
-    int result_after_decimal_point = ((int)floor(number * 10)) % 10;
+    int result_after_decimal_point = ((int)floor(number * 10.0f)) % 10;
     int result_before_decimal_point = ((int)floor(number) + 10) % 10;
 
     if (eval_predecessors < 0)
@@ -203,8 +203,7 @@ int ClassFlowCNNGeneral::PointerEvalHybrid(float number, float number_of_predece
         // add precisition of 2 digits and round before trunc
         // a number greater than 9.994999 is returned as 10, this leads to an error during the decimal shift because the NUMBERS[j]->ReturnRawValue is one digit longer.
         // To avoid this, an additional test must be carried out, see "if ((CNNType == DoubleHyprid10) || (CNNType == Digit100))" check in getReadout()
-        // Another alternative would be "result = (int) ((int) trunc(round((number+10 % 10)*1000))) / 1000;", which could, however, lead to other errors?
-        result = (int)((int)trunc(round((number + 10 % 10) * 100))) / 100;
+        result = (int) (trunc(round((float)((int)(number + 10.0f) % 10) * 100.0f)) / 100.0f);
 
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalHybrid - No predecessor - Result = " + std::to_string(result) + " number: " + std::to_string(number) + " number_of_predecessors = " + std::to_string(number_of_predecessors) + " eval_predecessors = " + std::to_string(eval_predecessors) + " Digit_Uncertainty = " + std::to_string(Digit_Uncertainty));
         return result;
@@ -277,14 +276,14 @@ int ClassFlowCNNGeneral::PointerEvalHybrid(float number, float number_of_predece
 int ClassFlowCNNGeneral::PointerEvalAnalogToDigit(float number, float numeral_preceder, int eval_predecessors, float AnalogToDigitTransitionStart)
 {
     int result = -1;
-    int result_after_decimal_point = ((int)floor(number * 10)) % 10;
+    int result_after_decimal_point = ((int)floor(number * 10.0f)) % 10;
     int result_before_decimal_point = ((int)floor(number) + 10) % 10;
     bool roundedUp = false;
 
     // Within the digit inequalities
     // Band around the digit --> Round off, as digit reaches inaccuracy in the frame
-    if ((result_after_decimal_point >= (10 - Digit_Uncertainty * 10)) || (eval_predecessors <= 4 && result_after_decimal_point >= 6))
-    { 
+    if ((result_after_decimal_point >= (10 - (int)(Digit_Uncertainty * 10.0f))) || (eval_predecessors <= 4 && result_after_decimal_point >= 6))
+    {
         // or digit runs after (analogue =0..4, digit >=6)
         result = (int)(round(number) + 10) % 10;
         roundedUp = true;
@@ -322,8 +321,8 @@ int ClassFlowCNNGeneral::PointerEvalAnalog(float number, int numeral_preceder)
         return result;
     }
 
-    float number_min = number - Analog_error / 10.0;
-    float number_max = number + Analog_error / 10.0;
+    float number_min = number - (float)Analog_error / 10.0f;
+    float number_max = number + (float)Analog_error / 10.0f;
 
     if ((int)floor(number_max) - (int)floor(number_min) != 0)
     {
@@ -333,7 +332,7 @@ int ClassFlowCNNGeneral::PointerEvalAnalog(float number, int numeral_preceder)
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalog - number ambiguous, correction upwards - result = " + std::to_string(result) + " number: " + std::to_string(number) + " numeral_preceder = " + std::to_string(numeral_preceder) + " Analog_error = " + std::to_string(Analog_error));
             return result;
         }
-        if (numeral_preceder >= 10 - Analog_error)
+        if (numeral_preceder >= (10 - Analog_error))
         {
             result = ((int)floor(number_min) + 10) % 10;
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalog - number ambiguous, downward correction - result = " + std::to_string(result) + " number: " + std::to_string(number) + " numeral_preceder = " + std::to_string(numeral_preceder) + " Analog_error = " + std::to_string(Analog_error));
@@ -369,7 +368,8 @@ bool ClassFlowCNNGeneral::ReadParameter(FILE *pfile, std::string &aktparamgraph)
     if (aktparamgraph[0] == ';')
     {
         disabled = true;
-        while (getNextLine(pfile, &aktparamgraph) && !isNewParagraph(aktparamgraph));
+        while (getNextLine(pfile, &aktparamgraph) && !isNewParagraph(aktparamgraph))
+            ;
         ESP_LOGD(TAG, "[Analog/Digit] is disabled!");
 
         return true;
@@ -581,35 +581,35 @@ bool ClassFlowCNNGeneral::doAlignAndCut(std::string time_value)
 
     CAlignAndCutImage *caic = flowpostalignment->GetAlignAndCutImage();
 
-    for (int _ana = 0; _ana < GENERAL.size(); ++_ana)
+    for (int _number = 0; _number < GENERAL.size(); ++_number)
     {
-        for (int i = 0; i < GENERAL[_ana]->ROI.size(); ++i)
+        for (int _roi = 0; _roi < GENERAL[_number]->ROI.size(); ++_roi)
         {
-            ESP_LOGD(TAG, "General %d - Align&Cut", i);
+            ESP_LOGD(TAG, "General %d - Align&Cut", _roi);
 
-            caic->CutAndSave(GENERAL[_ana]->ROI[i]->pos_x, GENERAL[_ana]->ROI[i]->pos_y, GENERAL[_ana]->ROI[i]->delta_x, GENERAL[_ana]->ROI[i]->delta_y, GENERAL[_ana]->ROI[i]->image_org);
+            caic->CutAndSave(GENERAL[_number]->ROI[_roi]->pos_x, GENERAL[_number]->ROI[_roi]->pos_y, GENERAL[_number]->ROI[_roi]->delta_x, GENERAL[_number]->ROI[_roi]->delta_y, GENERAL[_number]->ROI[_roi]->image_org);
             if (Camera.SaveAllFiles)
             {
-                if (GENERAL[_ana]->name == "default")
+                if (GENERAL[_number]->name == "default")
                 {
-                    GENERAL[_ana]->ROI[i]->image_org->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_ana]->ROI[i]->name + ".jpg"));
+                    GENERAL[_number]->ROI[_roi]->image_org->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_number]->ROI[_roi]->name + ".jpg"));
                 }
                 else
                 {
-                    GENERAL[_ana]->ROI[i]->image_org->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_ana]->name + "_" + GENERAL[_ana]->ROI[i]->name + ".jpg"));
+                    GENERAL[_number]->ROI[_roi]->image_org->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name + ".jpg"));
                 }
             }
 
-            GENERAL[_ana]->ROI[i]->image_org->Resize(model_x_size, model_y_size, GENERAL[_ana]->ROI[i]->image);
+            GENERAL[_number]->ROI[_roi]->image_org->Resize(model_x_size, model_y_size, GENERAL[_number]->ROI[_roi]->image);
             if (Camera.SaveAllFiles)
             {
-                if (GENERAL[_ana]->name == "default")
+                if (GENERAL[_number]->name == "default")
                 {
-                    GENERAL[_ana]->ROI[i]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_ana]->ROI[i]->name + ".jpg"));
+                    GENERAL[_number]->ROI[_roi]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_number]->ROI[_roi]->name + ".jpg"));
                 }
                 else
                 {
-                    GENERAL[_ana]->ROI[i]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_ana]->name + "_" + GENERAL[_ana]->ROI[i]->name + ".jpg"));
+                    GENERAL[_number]->ROI[_roi]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name + ".jpg"));
                 }
             }
         }
@@ -630,12 +630,12 @@ void ClassFlowCNNGeneral::DrawROI(CImageBasis *Image)
 
             for (int _ana = 0; _ana < GENERAL.size(); ++_ana)
             {
-                for (int i = 0; i < GENERAL[_ana]->ROI.size(); ++i)
+                for (int _roi = 0; _roi < GENERAL[_ana]->ROI.size(); ++_roi)
                 {
-                    Image->drawRect(GENERAL[_ana]->ROI[i]->pos_x, GENERAL[_ana]->ROI[i]->pos_y, GENERAL[_ana]->ROI[i]->delta_x, GENERAL[_ana]->ROI[i]->delta_y, r, g, b, 1);
-                    Image->drawEllipse((int)(GENERAL[_ana]->ROI[i]->pos_x + GENERAL[_ana]->ROI[i]->delta_x / 2), (int)(GENERAL[_ana]->ROI[i]->pos_y + GENERAL[_ana]->ROI[i]->delta_y / 2), (int)(GENERAL[_ana]->ROI[i]->delta_x / 2), (int)(GENERAL[_ana]->ROI[i]->delta_y / 2), r, g, b, 2);
-                    Image->drawLine((int)(GENERAL[_ana]->ROI[i]->pos_x + GENERAL[_ana]->ROI[i]->delta_x / 2), (int)GENERAL[_ana]->ROI[i]->pos_y, (int)(GENERAL[_ana]->ROI[i]->pos_x + GENERAL[_ana]->ROI[i]->delta_x / 2), (int)(GENERAL[_ana]->ROI[i]->pos_y + GENERAL[_ana]->ROI[i]->delta_y), r, g, b, 2);
-                    Image->drawLine((int)GENERAL[_ana]->ROI[i]->pos_x, (int)(GENERAL[_ana]->ROI[i]->pos_y + GENERAL[_ana]->ROI[i]->delta_y / 2), (int)GENERAL[_ana]->ROI[i]->pos_x + GENERAL[_ana]->ROI[i]->delta_x, (int)(GENERAL[_ana]->ROI[i]->pos_y + GENERAL[_ana]->ROI[i]->delta_y / 2), r, g, b, 2);
+                    Image->drawRect(GENERAL[_ana]->ROI[_roi]->pos_x, GENERAL[_ana]->ROI[_roi]->pos_y, GENERAL[_ana]->ROI[_roi]->delta_x, GENERAL[_ana]->ROI[_roi]->delta_y, r, g, b, 1);
+                    Image->drawEllipse((int)(GENERAL[_ana]->ROI[_roi]->pos_x + GENERAL[_ana]->ROI[_roi]->delta_x / 2), (int)(GENERAL[_ana]->ROI[_roi]->pos_y + GENERAL[_ana]->ROI[_roi]->delta_y / 2), (int)(GENERAL[_ana]->ROI[_roi]->delta_x / 2), (int)(GENERAL[_ana]->ROI[_roi]->delta_y / 2), r, g, b, 2);
+                    Image->drawLine((int)(GENERAL[_ana]->ROI[_roi]->pos_x + GENERAL[_ana]->ROI[_roi]->delta_x / 2), (int)GENERAL[_ana]->ROI[_roi]->pos_y, (int)(GENERAL[_ana]->ROI[_roi]->pos_x + GENERAL[_ana]->ROI[_roi]->delta_x / 2), (int)(GENERAL[_ana]->ROI[_roi]->pos_y + GENERAL[_ana]->ROI[_roi]->delta_y), r, g, b, 2);
+                    Image->drawLine((int)GENERAL[_ana]->ROI[_roi]->pos_x, (int)(GENERAL[_ana]->ROI[_roi]->pos_y + GENERAL[_ana]->ROI[_roi]->delta_y / 2), (int)GENERAL[_ana]->ROI[_roi]->pos_x + GENERAL[_ana]->ROI[_roi]->delta_x, (int)(GENERAL[_ana]->ROI[_roi]->pos_y + GENERAL[_ana]->ROI[_roi]->delta_y / 2), r, g, b, 2);
                 }
             }
         }
@@ -643,9 +643,9 @@ void ClassFlowCNNGeneral::DrawROI(CImageBasis *Image)
         {
             for (int _dig = 0; _dig < GENERAL.size(); ++_dig)
             {
-                for (int i = 0; i < GENERAL[_dig]->ROI.size(); ++i)
+                for (int _roi = 0; _roi < GENERAL[_dig]->ROI.size(); ++_roi)
                 {
-                    Image->drawRect(GENERAL[_dig]->ROI[i]->pos_x, GENERAL[_dig]->ROI[i]->pos_y, GENERAL[_dig]->ROI[i]->delta_x, GENERAL[_dig]->ROI[i]->delta_y, 0, 0, (255 - _dig * 100), 2);
+                    Image->drawRect(GENERAL[_dig]->ROI[_roi]->pos_x, GENERAL[_dig]->ROI[_roi]->pos_y, GENERAL[_dig]->ROI[_roi]->delta_x, GENERAL[_dig]->ROI[_roi]->delta_y, 0, 0, (255 - _dig * 100), 2);
                 }
             }
         }
@@ -779,7 +779,7 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
 
         int start_roi = 0;
 
-        if ((numbers[j]->useMaxFlowRate) && (numbers[j]->PreValueOkay) && (numbers[j]->timeStampLastValue == numbers[j]->timeStampLastPreValue))
+        if ((numbers[j]->useMaxFlowRate) && (numbers[j]->PreValueValid) && (numbers[j]->timeStampLastValue == numbers[j]->timeStampLastPreValue))
         {
             int _AnzahlDigit = numbers[j]->AnzahlDigit;
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _AnzahlDigit: " + std::to_string(_AnzahlDigit));
@@ -916,15 +916,15 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
                 float _value1 = tflite->GetOutputValue(0);
                 float _value2 = tflite->GetOutputValue(1);
 
-                float _result = fmod(atan2(_value1, _value2) / (M_PI * 2) + 2, 1);
+                float _result = fmod((atan2(_value1, _value2) / (M_PI * 2.0f) + 2.0f), 1.0f);
 
                 if (GENERAL[j]->ROI[i]->ccw)
                 {
-                    _result = 10 - (_result * 10);
+                    _result = 10.0f - (_result * 10.0f);
                 }
                 else
                 {
-                    _result = _result * 10;
+                    _result = _result * 10.0f;
                 }
 
                 if (i >= start_roi)
@@ -1092,11 +1092,11 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
 
                 if (GENERAL[j]->ROI[i]->ccw)
                 {
-                    _result = 10 - ((float)_num / 10.0);
+                    _result = 10.0f - ((float)_num / 10.0f);
                 }
                 else
                 {
-                    _result = (float)_num / 10.0;
+                    _result = (float)_num / 10.0f;
                 }
 
                 if (i >= start_roi)
@@ -1160,46 +1160,46 @@ std::vector<HTMLInfo *> ClassFlowCNNGeneral::GetHTMLInfo(void)
 {
     std::vector<HTMLInfo *> result;
 
-    for (int _ana = 0; _ana < GENERAL.size(); ++_ana)
+    for (int _number = 0; _number < GENERAL.size(); ++_number)
     {
-        for (int i = 0; i < GENERAL[_ana]->ROI.size(); ++i)
+        for (int _roi = 0; _roi < GENERAL[_number]->ROI.size(); ++_roi)
         {
-            ESP_LOGD(TAG, "Image: %d", (int)GENERAL[_ana]->ROI[i]->image);
-            if (GENERAL[_ana]->ROI[i]->image)
+            ESP_LOGD(TAG, "Image: %d", (int)GENERAL[_number]->ROI[_roi]->image);
+            if (GENERAL[_number]->ROI[_roi]->image)
             {
-                if (GENERAL[_ana]->name == "default")
+                if (GENERAL[_number]->name == "default")
                 {
-                    GENERAL[_ana]->ROI[i]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_ana]->ROI[i]->name + ".jpg"));
+                    GENERAL[_number]->ROI[_roi]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_number]->ROI[_roi]->name + ".jpg"));
                 }
                 else
                 {
-                    GENERAL[_ana]->ROI[i]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_ana]->name + "_" + GENERAL[_ana]->ROI[i]->name + ".jpg"));
+                    GENERAL[_number]->ROI[_roi]->image->SaveToFile(format_filename("/sdcard/img_tmp/" + GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name + ".jpg"));
                 }
             }
 
             HTMLInfo *temp_info = new HTMLInfo;
-            if (GENERAL[_ana]->name == "default")
+            if (GENERAL[_number]->name == "default")
             {
-                temp_info->filename = GENERAL[_ana]->ROI[i]->name + ".jpg";
-                temp_info->filename_org = GENERAL[_ana]->ROI[i]->name + ".jpg";
+                temp_info->filename = GENERAL[_number]->ROI[_roi]->name + ".jpg";
+                temp_info->filename_org = GENERAL[_number]->ROI[_roi]->name + ".jpg";
             }
             else
             {
-                temp_info->filename = GENERAL[_ana]->name + "_" + GENERAL[_ana]->ROI[i]->name + ".jpg";
-                temp_info->filename_org = GENERAL[_ana]->name + "_" + GENERAL[_ana]->ROI[i]->name + ".jpg";
+                temp_info->filename = GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name + ".jpg";
+                temp_info->filename_org = GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name + ".jpg";
             }
 
             if (CNNType == Digit)
             {
-                temp_info->val = (float)GENERAL[_ana]->ROI[i]->raw_result_klasse;
+                temp_info->val = (float)GENERAL[_number]->ROI[_roi]->raw_result_klasse;
             }
             else
             {
-                temp_info->val = GENERAL[_ana]->ROI[i]->raw_result_float;
+                temp_info->val = GENERAL[_number]->ROI[_roi]->raw_result_float;
             }
 
-            temp_info->image = GENERAL[_ana]->ROI[i]->image;
-            temp_info->image_org = GENERAL[_ana]->ROI[i]->image_org;
+            temp_info->image = GENERAL[_number]->ROI[_roi]->image;
+            temp_info->image_org = GENERAL[_number]->ROI[_roi]->image_org;
 
             result.push_back(temp_info);
         }
@@ -1235,14 +1235,14 @@ general *ClassFlowCNNGeneral::GetGENERAL(int _number)
 
 void ClassFlowCNNGeneral::UpdateNameNumbers(std::vector<std::string> *_name_numbers)
 {
-    for (int _dig = 0; _dig < GENERAL.size(); _dig++)
+    for (int _number = 0; _number < GENERAL.size(); ++_number)
     {
-        std::string _name = GENERAL[_dig]->name;
+        std::string _name = GENERAL[_number]->name;
         bool found = false;
 
-        for (int i = 0; i < (*_name_numbers).size(); ++i)
+        for (int _roi = 0; _roi < (*_name_numbers).size(); ++_roi)
         {
-            if ((*_name_numbers)[i] == _name)
+            if ((*_name_numbers)[_roi] == _name)
             {
                 found = true;
             }
@@ -1263,41 +1263,41 @@ std::string ClassFlowCNNGeneral::getReadoutRawString(int _number)
         return temp_string;
     }
 
-    for (int i = 0; i < GENERAL[_number]->ROI.size(); ++i)
+    for (int _roi = 0; _roi < GENERAL[_number]->ROI.size(); ++_roi)
     {
         if (CNNType == Analogue || CNNType == Analogue100)
         {
-            if ((GENERAL[_number]->ROI[i]->raw_result_float < 0.0f) || (GENERAL[_number]->ROI[i]->raw_result_float >= 10.0f))
+            if ((GENERAL[_number]->ROI[_roi]->raw_result_float < 0.0f) || (GENERAL[_number]->ROI[_roi]->raw_result_float >= 10.0f))
             {
                 temp_string = temp_string + ",N";
             }
             else
             {
-                temp_string = temp_string + "," + round_output(GENERAL[_number]->ROI[i]->raw_result_float, 1);
+                temp_string = temp_string + "," + round_output(GENERAL[_number]->ROI[_roi]->raw_result_float, 1);
             }
         }
 
         else if (CNNType == Digit)
         {
-            if ((GENERAL[_number]->ROI[i]->raw_result_klasse < 0) || (GENERAL[_number]->ROI[i]->raw_result_klasse >= 10))
+            if ((GENERAL[_number]->ROI[_roi]->raw_result_klasse < 0) || (GENERAL[_number]->ROI[_roi]->raw_result_klasse >= 10))
             {
                 temp_string = temp_string + ",N";
             }
             else
             {
-                temp_string = temp_string + "," + round_output(GENERAL[_number]->ROI[i]->raw_result_klasse, 0);
+                temp_string = temp_string + "," + round_output(GENERAL[_number]->ROI[_roi]->raw_result_klasse, 0);
             }
         }
 
         else if ((CNNType == DoubleHyprid10) || (CNNType == Digit100))
         {
-            if ((GENERAL[_number]->ROI[i]->raw_result_float < 0.0f) || (GENERAL[_number]->ROI[i]->raw_result_float >= 10.0f))
+            if ((GENERAL[_number]->ROI[_roi]->raw_result_float < 0.0f) || (GENERAL[_number]->ROI[_roi]->raw_result_float >= 10.0f))
             {
                 temp_string = temp_string + ",N";
             }
             else
             {
-                temp_string = temp_string + "," + round_output(GENERAL[_number]->ROI[i]->raw_result_float, 1);
+                temp_string = temp_string + "," + round_output(GENERAL[_number]->ROI[_roi]->raw_result_float, 1);
             }
         }
     }

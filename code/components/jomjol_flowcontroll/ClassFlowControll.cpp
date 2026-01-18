@@ -454,7 +454,7 @@ std::string ClassFlowControll::getReadoutAll(int _type)
             case READOUT_TYPE_PREVALUE:
                 if (flowpostprocessing->PreValueUse)
                 {
-                    if ((*numbers)[i]->PreValueOkay)
+                    if ((*numbers)[i]->PreValueValid)
                     {
                         out = out + (*numbers)[i]->ReturnPreValue;
                     }

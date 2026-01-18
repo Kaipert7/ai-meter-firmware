@@ -16,7 +16,7 @@ protected:
     bool UpdatePreValueINI;
 
     int PreValueAgeStartup;
-    bool ErrorMessage;
+    bool SkipErrorMessage;
 
     ClassFlowCNNGeneral *flowAnalog;
     ClassFlowCNNGeneral *flowDigit;
