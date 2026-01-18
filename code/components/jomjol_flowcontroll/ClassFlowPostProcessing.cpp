@@ -13,7 +13,7 @@
 #include "Helper.h"
 #include "time_sntp.h"
 
-static const char *TAG = "POSTPROCESS";
+static const char *TAG = "POSTPROC";
 
 std::string ClassFlowPostProcessing::getNumbersName()
 {
@@ -141,15 +141,13 @@ bool ClassFlowPostProcessing::SetPreValue(double _newvalue, std::string _numbers
             }
 
             NUMBERS[j]->ReturnPreValue = std::to_string(NUMBERS[j]->PreValue);
-            NUMBERS[j]->PreValueOkay = true;
+            NUMBERS[j]->PreValueValid = true;
 
             if (_extern)
             {
                 time(&(NUMBERS[j]->timeStampLastPreValue));
                 localtime(&(NUMBERS[j]->timeStampLastPreValue));
             }
-
-            // ESP_LOGD(TAG, "Found %d! - set to %.8f", j,  NUMBERS[j]->PreValue);
 
             UpdatePreValueINI = true; // Only update prevalue file if a new value is set
             SavePreValue();
@@ -228,11 +226,11 @@ bool ClassFlowPostProcessing::LoadPreValue(void)
 
                     if (difference > PreValueAgeStartup)
                     {
-                        NUMBERS[j]->PreValueOkay = false;
+                        NUMBERS[j]->PreValueValid = false;
                     }
                     else
                     {
-                        NUMBERS[j]->PreValueOkay = true;
+                        NUMBERS[j]->PreValueValid = true;
                     }
                 }
             }
@@ -344,7 +342,7 @@ ClassFlowPostProcessing::ClassFlowPostProcessing(std::vector<ClassFlow *> *lfc, 
 {
     PreValueUse = false;
     PreValueAgeStartup = 30;
-    ErrorMessage = false;
+    SkipErrorMessage = false;
     ListFlowControll = NULL;
     FilePreValue = format_filename("/sdcard/config/prevalue.ini");
     ListFlowControll = lfc;
@@ -670,9 +668,9 @@ bool ClassFlowPostProcessing::ReadParameter(FILE *pFile, std::string &aktparamgr
                     PreValueAgeStartup = std::stoi(splitted[1]);
                 }
             }
-            else if (_param == "ERRORMESSAGE")
+            else if (_param == "SKIPERRORMESSAGE")
             {
-                ErrorMessage = alphanumeric_to_boolean(splitted[1]);
+                SkipErrorMessage = alphanumeric_to_boolean(splitted[1]);
             }
             else if (_param == "ALLOWNEGATIVERATES")
             {
@@ -776,27 +774,28 @@ void ClassFlowPostProcessing::InitNUMBERS()
             _number->AnzahlAnalog = 0;
         }
 
-        _number->PreValue = 0;    // last value read out well
+        _number->PreValue = 0.0f; // last value read out well
         _number->ReturnPreValue = "";
-        _number->PreValueOkay = false;
+        _number->PreValueValid = false;
+        _number->ErrorMessage = false;
         _number->ErrorMessageText = ""; // Error message for consistency check
         _number->AllowNegativeRates = false;
         _number->DecimalShift = 0;
         _number->DecimalShiftInitial = 0;
-        _number->AnalogToDigitTransitionStart = 9.2;
-        _number->MaxFlowRate = 4.0;
+        _number->AnalogToDigitTransitionStart = 9.2f;
+        _number->MaxFlowRate = 4.0f;
         _number->useMaxFlowRate = false;
-        _number->MaxRateValue = 0.1;
+        _number->MaxRateValue = 0.1f;
         _number->MaxRateType = AbsoluteChange;
         _number->useMaxRateValue = false;
         _number->ChangeRateThreshold = 2;
         _number->isExtendedResolution = false;
         _number->IgnoreLeadingNaN = false;
 
-        _number->Value = 0;           // last value read out, incl. corrections
+        _number->Value = 0.0f;           // last value read out, incl. corrections
         _number->ReturnValue = "";    // corrected return value, possibly with error message
         _number->ReturnRawValue = ""; // raw value (with N & leading 0)
-        _number->FlowRateAct = 0;     // m3 / min
+        _number->FlowRateAct = 0.0f;     // m3 / min
 
         _number->Nachkomma = _number->AnzahlAnalog;
 
@@ -871,22 +870,42 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
 
     for (int j = 0; j < NUMBERS.size(); ++j)
     {
-        NUMBERS[j]->ReturnRawValue = "";
-        NUMBERS[j]->ReturnRateValue = "";
-        NUMBERS[j]->ReturnValue = "";
-        NUMBERS[j]->ReturnChangeAbsolute = round_output(0.0, NUMBERS[j]->Nachkomma); // always reset change absolute
+        NUMBERS[j]->ErrorMessage = false;
         NUMBERS[j]->ErrorMessageText = "";
+
         NUMBERS[j]->Value = -1;
 
+        if (SkipErrorMessage)
+        {
+            NUMBERS[j]->ReturnValue = std::to_string(NUMBERS[j]->PreValue);
+            NUMBERS[j]->ReturnRawValue = NUMBERS[j]->ReturnValue;
+        }
+        else
+        {
+            NUMBERS[j]->ReturnValue = "";
+            NUMBERS[j]->ReturnRawValue = "";
+        }
+
+        NUMBERS[j]->FlowRateAct = 0.0f;
+        NUMBERS[j]->ReturnRateValue = round_output(0.0f, NUMBERS[j]->Nachkomma);
+        NUMBERS[j]->ReturnChangeAbsolute = NUMBERS[j]->ReturnRateValue;
+
         // calculate time difference
-        double LastValueTimeDifference = difftime(imagetime, NUMBERS[j]->timeStampLastValue) / 60;  // in minutes
+        double LastValueTimeDifference = difftime(imagetime, NUMBERS[j]->timeStampLastValue) / 60;       // in minutes
         double LastPreValueTimeDifference = difftime(imagetime, NUMBERS[j]->timeStampLastPreValue) / 60; // in minutes
 
         if (!flowctrl.AlignmentOk)
         {
-            NUMBERS[j]->ErrorMessageText = "alignment failed";
-            LogFile.WriteToFile(ESP_LOG_ERROR, TAG, NUMBERS[j]->ErrorMessageText);
+            NUMBERS[j]->Value = NUMBERS[j]->PreValue;
+            NUMBERS[j]->timeStampLastValue = imagetime;
+
+            NUMBERS[j]->ErrorMessage = true;
+            NUMBERS[j]->ErrorMessageText = NUMBERS[j]->ErrorMessageText + "Alignment failed - Read: " + round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma) + " - Raw: " + NUMBERS[j]->ReturnRawValue + " - Pre: " + round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma) + " - Rate: " + NUMBERS[j]->ReturnRateValue;
+
+            std::string temp_string = NUMBERS[j]->name + ": Raw: " + NUMBERS[j]->ReturnRawValue + ", Value: " + NUMBERS[j]->ReturnValue + ", Status: " + NUMBERS[j]->ErrorMessageText;
+            LogFile.WriteToFile(ESP_LOG_ERROR, TAG, temp_string);
             WriteDataLog(j);
+
             continue;
         }
 
@@ -934,34 +953,52 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
             }
         }
 
-        NUMBERS[j]->ReturnValue = NUMBERS[j]->ReturnRawValue;
+        std::string TempValue = NUMBERS[j]->ReturnRawValue;
 
-        if (find_delimiter_pos(NUMBERS[j]->ReturnValue, "N") != std::string::npos)
+        if (find_delimiter_pos(TempValue, "N") != std::string::npos)
         {
-            if (PreValueUse && NUMBERS[j]->PreValueOkay)
+            if (PreValueUse && NUMBERS[j]->PreValueValid)
             {
-                NUMBERS[j]->ReturnValue = ErsetzteN(NUMBERS[j]->ReturnValue, NUMBERS[j]->PreValue);
+                TempValue = ErsetzteN(TempValue, NUMBERS[j]->PreValue);
             }
             else
             {
+                NUMBERS[j]->Value = NUMBERS[j]->PreValue;
+                NUMBERS[j]->timeStampLastValue = imagetime;
+
+                NUMBERS[j]->ErrorMessage = true;
+                NUMBERS[j]->ErrorMessageText = NUMBERS[j]->ErrorMessageText + "PreValue not valid - Read: " + round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma) + " - Raw: " + NUMBERS[j]->ReturnRawValue + " - Pre: " + round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma) + " - Rate: " + NUMBERS[j]->ReturnRateValue;
+
                 std::string temp_string = NUMBERS[j]->name + ": Raw: " + NUMBERS[j]->ReturnRawValue + ", Value: " + NUMBERS[j]->ReturnValue + ", Status: " + NUMBERS[j]->ErrorMessageText;
                 LogFile.WriteToFile(ESP_LOG_INFO, TAG, temp_string);
-                NUMBERS[j]->ReturnValue = "";
-                NUMBERS[j]->timeStampLastValue = imagetime;
                 WriteDataLog(j);
+
                 continue; // there is no number because there is still an N.
             }
         }
 
         // Delete leading zeros (unless there is only one 0 left)
-        while ((NUMBERS[j]->ReturnValue.length() > 1) && (NUMBERS[j]->ReturnValue[0] == '0'))
+        while ((TempValue.length() > 1) && (TempValue[0] == '0'))
         {
-            NUMBERS[j]->ReturnValue.erase(0, 1);
+            TempValue.erase(0, 1);
         }
 
-        NUMBERS[j]->Value = std::stod(NUMBERS[j]->ReturnValue);
+        NUMBERS[j]->Value = std::stod(TempValue);
 
-        if (PreValueUse && NUMBERS[j]->PreValueOkay)
+        NUMBERS[j]->ReturnChangeAbsolute = round_output(NUMBERS[j]->Value - NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma);
+        NUMBERS[j]->FlowRateAct = std::stod(round_output(((NUMBERS[j]->Value - NUMBERS[j]->PreValue) / LastPreValueTimeDifference), NUMBERS[j]->Nachkomma));
+
+        if (NUMBERS[j]->MaxRateType == RateChange)
+        {
+            NUMBERS[j]->ReturnRateValue = std::to_string(NUMBERS[j]->FlowRateAct);
+        }
+        else
+        {
+            // Difference per round, as a safeguard in case a reading error(Neg. Rate - Read: or Rate too high - Read:) occurs in the meantime
+            NUMBERS[j]->ReturnRateValue = round_output((NUMBERS[j]->Value - NUMBERS[j]->PreValue) / ((int)(round(LastPreValueTimeDifference / LastValueTimeDifference))), NUMBERS[j]->Nachkomma);
+        }
+
+        if (PreValueUse && NUMBERS[j]->PreValueValid)
         {
             if ((NUMBERS[j]->Nachkomma > 0) && (NUMBERS[j]->ChangeRateThreshold > 0))
             {
@@ -971,7 +1008,6 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
                 if ((NUMBERS[j]->Value >= _difference1) && (NUMBERS[j]->Value <= _difference2))
                 {
                     NUMBERS[j]->Value = NUMBERS[j]->PreValue;
-                    NUMBERS[j]->ReturnValue = std::to_string(NUMBERS[j]->PreValue);
                 }
             }
 
@@ -981,63 +1017,53 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
 
                 if ((NUMBERS[j]->Value < NUMBERS[j]->PreValue))
                 {
-                    NUMBERS[j]->ErrorMessageText = NUMBERS[j]->ErrorMessageText + "Neg. Rate - Read: " + round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma) + " - Raw: " + NUMBERS[j]->ReturnRawValue + " - Pre: " + round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma) + " ";
                     NUMBERS[j]->Value = NUMBERS[j]->PreValue;
-                    NUMBERS[j]->ReturnValue = "";
                     NUMBERS[j]->timeStampLastValue = imagetime;
+
+                    NUMBERS[j]->ErrorMessage = true;
+                    NUMBERS[j]->ErrorMessageText = NUMBERS[j]->ErrorMessageText + "Neg. Rate - Read: " + round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma) + " - Raw: " + NUMBERS[j]->ReturnRawValue + " - Pre: " + round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma) + " - Rate: " + NUMBERS[j]->ReturnRateValue;
 
                     std::string temp_string = NUMBERS[j]->name + ": Raw: " + NUMBERS[j]->ReturnRawValue + ", Value: " + NUMBERS[j]->ReturnValue + ", Status: " + NUMBERS[j]->ErrorMessageText;
                     LogFile.WriteToFile(ESP_LOG_ERROR, TAG, temp_string);
                     WriteDataLog(j);
+
                     continue;
                 }
             }
 
-            NUMBERS[j]->FlowRateAct = (NUMBERS[j]->Value - NUMBERS[j]->PreValue) / LastPreValueTimeDifference;
-            NUMBERS[j]->ReturnRateValue = std::to_string(NUMBERS[j]->FlowRateAct);
-
             if ((NUMBERS[j]->useMaxRateValue) && (NUMBERS[j]->Value != NUMBERS[j]->PreValue))
             {
-                double _ratedifference;
-
-                if (NUMBERS[j]->MaxRateType == RateChange)
+                if (abs(std::stod(NUMBERS[j]->ReturnRateValue)) > abs(NUMBERS[j]->MaxRateValue))
                 {
-                    _ratedifference = NUMBERS[j]->FlowRateAct;
-                }
-                else
-                {
-                    // Difference per round, as a safeguard in case a reading error(Neg. Rate - Read: or Rate too high - Read:) occurs in the meantime
-                    _ratedifference = ((NUMBERS[j]->Value - NUMBERS[j]->PreValue) / ((int)(round(LastPreValueTimeDifference / LastValueTimeDifference))));
-                }
-
-                if (abs(_ratedifference) > abs(NUMBERS[j]->MaxRateValue))
-                {
-                    NUMBERS[j]->ErrorMessageText = NUMBERS[j]->ErrorMessageText + "Rate too high - Read: " + round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma) + " - Pre: " + round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma) + " - Rate: " + round_output(_ratedifference, NUMBERS[j]->Nachkomma);
                     NUMBERS[j]->Value = NUMBERS[j]->PreValue;
-                    NUMBERS[j]->ReturnValue = "";
-                    NUMBERS[j]->ReturnRateValue = "";
                     NUMBERS[j]->timeStampLastValue = imagetime;
+
+                    NUMBERS[j]->ErrorMessage = true;
+                    NUMBERS[j]->ErrorMessageText = NUMBERS[j]->ErrorMessageText + "Rate too high - Read: " + round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma) + " - Raw: " + NUMBERS[j]->ReturnRawValue + " - Pre: " + round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma) + " - Rate: " + NUMBERS[j]->ReturnRateValue;
 
                     std::string temp_string = NUMBERS[j]->name + ": Raw: " + NUMBERS[j]->ReturnRawValue + ", Value: " + NUMBERS[j]->ReturnValue + ", Status: " + NUMBERS[j]->ErrorMessageText;
                     LogFile.WriteToFile(ESP_LOG_ERROR, TAG, temp_string);
                     WriteDataLog(j);
+
                     continue;
                 }
             }
         }
 
         NUMBERS[j]->ReturnChangeAbsolute = round_output(NUMBERS[j]->Value - NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma);
-        NUMBERS[j]->PreValue = NUMBERS[j]->Value;
-        NUMBERS[j]->PreValueOkay = true;
 
-        NUMBERS[j]->timeStampLastValue = imagetime;
-        NUMBERS[j]->timeStampLastPreValue = imagetime;
+        NUMBERS[j]->PreValue = NUMBERS[j]->Value;
+        NUMBERS[j]->PreValueValid = true;
+        UpdatePreValueINI = true;
 
         NUMBERS[j]->ReturnValue = round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma);
         NUMBERS[j]->ReturnPreValue = round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma);
 
-        NUMBERS[j]->ErrorMessageText = "no error";
-        UpdatePreValueINI = true;
+        NUMBERS[j]->timeStampLastValue = imagetime;
+        NUMBERS[j]->timeStampLastPreValue = imagetime;
+
+        NUMBERS[j]->ErrorMessage = false;
+        NUMBERS[j]->ErrorMessageText = NUMBERS[j]->ErrorMessageText + "no error - Read: " + round_output(NUMBERS[j]->Value, NUMBERS[j]->Nachkomma) + " - Raw: " + NUMBERS[j]->ReturnRawValue + " - Pre: " + round_output(NUMBERS[j]->PreValue, NUMBERS[j]->Nachkomma) + " - Rate: " + NUMBERS[j]->ReturnRateValue;
 
         std::string temp_string = NUMBERS[j]->name + ": Raw: " + NUMBERS[j]->ReturnRawValue + ", Value: " + NUMBERS[j]->ReturnValue + ", Status: " + NUMBERS[j]->ErrorMessageText;
         LogFile.WriteToFile(ESP_LOG_INFO, TAG, temp_string);
@@ -1045,6 +1071,7 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
     }
 
     SavePreValue();
+
     return true;
 }
 
@@ -1074,11 +1101,11 @@ void ClassFlowPostProcessing::WriteDataLog(int _index)
 
     std::string analog = "";
     std::string digit = "";
-    std::string temp_time = "";
+
     char buffer[80];
     struct tm *timeinfo = localtime(&NUMBERS[_index]->timeStampLastValue);
     strftime(buffer, 80, PREVALUE_TIME_FORMAT_OUTPUT, timeinfo);
-    temp_time = std::string(buffer);
+    std::string temp_time = std::string(buffer);
 
     if (flowAnalog)
     {

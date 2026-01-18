@@ -930,15 +930,15 @@
 
         <tr class="expert">
             <td class="indent1">
-                <class id="PostProcessing_ErrorMessage_text" style="color:black;">Skip Messages on Error</class>
+                <class id="PostProcessing_SkipErrorMessage_text" style="color:black;">Skip Messages on Error</class>
             </td>
             <td>
-                <select id="PostProcessing_ErrorMessage_value1">
+                <select id="PostProcessing_SkipErrorMessage_value1">
                     <option value="true">enabled (true)</option>
                     <option value="false" selected>disabled (false)</option>
                 </select>
             </td>
-            <td>$TOOLTIP_PostProcessing_ErrorMessage</td>
+            <td>$TOOLTIP_PostProcessing_SkipErrorMessage</td>
         </tr>
 
         <tr style="margin-top:12px">
@@ -2405,7 +2405,7 @@ function UpdateInput() {
     
     WriteParameter(param, category, "PostProcessing", "PreValueUse", false);		
     WriteParameter(param, category, "PostProcessing", "PreValueAgeStartup", true);		
-    WriteParameter(param, category, "PostProcessing", "ErrorMessage", false);
+    WriteParameter(param, category, "PostProcessing", "SkipErrorMessage", false);
 
     WriteParameter(param, category, "MQTT", "Uri", true);	
     WriteParameter(param, category, "MQTT", "MainTopic", true);	
@@ -2579,7 +2579,7 @@ function ReadParameterAll() {
 
     ReadParameter(param, "PostProcessing", "PreValueUse", false);
     ReadParameter(param, "PostProcessing", "PreValueAgeStartup", true);
-    ReadParameter(param, "PostProcessing", "ErrorMessage", false);
+    ReadParameter(param, "PostProcessing", "SkipErrorMessage", false);
 
     ReadParameter(param, "MQTT", "Uri", true);
     ReadParameter(param, "MQTT", "MainTopic", true);

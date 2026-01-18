@@ -253,7 +253,7 @@ function ParseConfig() {
     // ParamAddValue(param, catname, "PreValueUse", 1, true, "true");
     ParamAddValue(param, catname, "PreValueUse", 1, false, "true");
     ParamAddValue(param, catname, "PreValueAgeStartup", 1, false, "720");
-    ParamAddValue(param, catname, "ErrorMessage", 1, false, "true");
+    ParamAddValue(param, catname, "SkipErrorMessage", 1, false, "false");
     ParamAddValue(param, catname, "AllowNegativeRates", 1, true, "false");
     ParamAddValue(param, catname, "DecimalShift", 1, true, "0");
     ParamAddValue(param, catname, "AnalogToDigitTransitionStart", 1, true, "9.2");

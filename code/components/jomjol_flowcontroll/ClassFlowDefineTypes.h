@@ -41,9 +41,8 @@ struct NumberPost
     float MaxRateValue;                 // maxRate; upper bound for the difference between two consecutive readings; affected by maxRateType;
     bool useMaxRateValue;               // consistencyChecksEnabled; enables consistency checks; uses maxRate and maxRateType
     t_RateType MaxRateType;             // maxRateType; affects how the value of maxRate is used for comparing the current and previous value
-    bool ErrorMessage;                  // FIXME: not used; can be removed
     int ChangeRateThreshold;            // threshold parameter for negative rate detection
-    bool PreValueOkay;                  // previousValueValid; indicates that the reading of the previous round has no errors
+    bool PreValueValid;                 // previousValueValid; indicates that the reading of the previous round has no errors
     bool AllowNegativeRates;            // allowNegativeRate; defines if the consistency checks allow negative rates between consecutive meter readings.
     bool IgnoreLeadingNaN;              //
     time_t timeStampLastValue;          // Timestamp for the last read value; is used for the log
@@ -58,6 +57,7 @@ struct NumberPost
     string ReturnRawValue;              // rawValueStr; Raw value (with N & leading 0)
     string ReturnValue;                 // valueStr; corrected return value, if necessary with error message
     string ReturnPreValue;              // lastValidValueStr; corrected return value without error message
+    bool ErrorMessage;                  //
     string ErrorMessageText;            // errorMessage; Error message for consistency checks
     int AnzahlAnalog;                   // numAnalogRoi; number of analog ROIs used in this sequence
     int AnzahlDigit;                    // numDigitRoi; number of digit ROIs used in this sequence
