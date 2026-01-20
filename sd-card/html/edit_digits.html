@@ -25,6 +25,10 @@
     <script type="text/javascript" src="jquery-3.6.0.min.js?v=$COMMIT_HASH"></script>
     <script type="text/javascript" src="firework.js?v=$COMMIT_HASH"></script>
 
+    <script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
+    <script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
+
+    <script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -195,10 +199,6 @@
         </tr>
     </table>
 
-
-<script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
-<script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
-
 <script type="text/javascript">
     var canvas = document.getElementById('canvas'),
         imageObj = new Image(),
@@ -206,18 +206,17 @@
         drag = false,
         aktindex = 0,
         ROIInfo,
-        cofcat,
+        category,
         param,
         _roialt = "dig",
         enhanceCon = false,
         lockAspectRatio = true,
         lockSizes = false,
         lockSpaceEquidistant = true,
-        space = 3,
-        domainname = getDomainname();
+        space = 3;
 
     function doReboot() {
-        var stringota = getDomainname() + "/reboot";
+        var stringota = domainname + "/reboot";
         window.location = stringota;
         window.location.href = stringota;
         window.location.assign(stringota);
@@ -239,7 +238,7 @@
 		
         sah1(document.getElementById("div1"), !isEnabled);
 
-        cofcat["Digits"]["enabled"] = isEnabled;
+        category["Digits"]["enabled"] = isEnabled;
         document.getElementById("saveroi").disabled = false;
                 
         if (isEnabled) {
@@ -371,7 +370,7 @@
 
     function SaveToConfig() {
         // _zwcat = getConfigCategory();
-        cofcat["Digits"]["enabled"] = document.getElementById("Category_Digits_enabled").checked;
+        category["Digits"]["enabled"] = document.getElementById("Category_Digits_enabled").checked;
         WriteConfigININew();
         SaveConfigToServer(domainname);
         UpdateROIs();
@@ -423,7 +422,7 @@
         ROIInfo = getROIInfo("digit", _number);
         // _catzw = getConfigCategory();
 
-        if (cofcat["Digits"]["enabled"] == false)  {
+        if (category["Digits"]["enabled"] == false)  {
             document.getElementById("Category_Digits_enabled").checked = false;
             EnDisableDigits();
             firework.launch('Digit ROI processing is disabled. Activate with checkbox if needed', 'warning', 10000);
@@ -569,16 +568,9 @@
     
     function init() {
         openDescription();
-        domainname = getDomainname();
-		
-		if (!loadConfig(domainname)) {
-			firework.launch('Configuration could not be loaded! Please reload the page!', 'danger', 30000);
-			return;
-		}
-		
-        ParseConfig();
-        param = getConfigParameters(); 
-        cofcat = getConfigCategory();
+
+        param = getConfigParameters();
+        category = getConfigCategory();
 		
         canvas.addEventListener('mousedown', mouseDown, false);
         canvas.addEventListener('mouseup', mouseUp, false);

@@ -13,36 +13,39 @@
 
 static const char *TAG = "FLOWIMAGE";
 
-ClassFlowImage::ClassFlowImage(const char *logTag)
+ClassFlowImage::ClassFlowImage(const char *_logTag)
 {
-    this->logTag = logTag;
+    logTag = _logTag;
     isLogImage = false;
     disabled = false;
-    this->imagesRetention = 5;
+    imagesRetention = 5;
 }
 
-ClassFlowImage::ClassFlowImage(std::vector<ClassFlow *> *lfc, const char *logTag) : ClassFlow(lfc)
+ClassFlowImage::ClassFlowImage(std::vector<ClassFlow *> *_lfc, const char *_logTag) : ClassFlow(_lfc)
 {
-    this->logTag = logTag;
+    logTag = _logTag;
     isLogImage = false;
     disabled = false;
-    this->imagesRetention = 5;
+    imagesRetention = 5;
 }
 
-ClassFlowImage::ClassFlowImage(std::vector<ClassFlow *> *lfc, ClassFlow *_prev, const char *logTag) : ClassFlow(lfc, _prev)
+ClassFlowImage::ClassFlowImage(std::vector<ClassFlow *> *_lfc, ClassFlow *_prev, const char *_logTag) : ClassFlow(_lfc, _prev)
 {
-    this->logTag = logTag;
+    logTag = _logTag;
     isLogImage = false;
     disabled = false;
-    this->imagesRetention = 5;
+    imagesRetention = 5;
 }
 
-string ClassFlowImage::CreateLogFolder(string time)
+string ClassFlowImage::CreateLogFolder(string _time)
 {
     if (!isLogImage)
+    {
         return "";
+    }
 
-    string logPath = imagesLocation + "/" + time.LOGFILE_TIME_FORMAT_DATE_EXTR + "/" + time.LOGFILE_TIME_FORMAT_HOUR_EXTR;
+    string logPath = imagesLocation + "/" + _time.LOGFILE_TIME_FORMAT_DATE_EXTR + "/" + _time.LOGFILE_TIME_FORMAT_HOUR_EXTR;
+
     isLogImage = mkdir_r(logPath.c_str(), S_IRWXU) == 0;
     if (!isLogImage)
     {
@@ -52,42 +55,50 @@ string ClassFlowImage::CreateLogFolder(string time)
     return logPath;
 }
 
-void ClassFlowImage::LogImage(string logPath, string name, float *resultFloat, int *resultInt, string time, CImageBasis *_img)
+void ClassFlowImage::LogImage(string _logPath, string _name, float *_resultFloat, int *_resultInt, string _time, CImageBasis *_img)
 {
     if (!isLogImage)
+    {
         return;
+    }
 
     char buf[10];
 
-    if (resultFloat != NULL)
+    if (_resultFloat != NULL)
     {
-        if (*resultFloat < 0)
+        if (*_resultFloat < 0)
+        {
             sprintf(buf, "N.N_");
+        }
         else
         {
-            sprintf(buf, "%.1f_", *resultFloat);
+            sprintf(buf, "%.1f_", *_resultFloat);
             if (strcmp(buf, "10.0_") == 0)
-                sprintf(buf, "0.0_");
+            {
+                sprintf(buf, "N.N_");
+            }
         }
     }
-    else if (resultInt != NULL)
+    else if (_resultInt != NULL)
     {
-        sprintf(buf, "%d_", *resultInt);
+        sprintf(buf, "%d_", *_resultInt);
     }
     else
     {
         buf[0] = '\0';
     }
 
-    string nm = logPath + "/" + buf + name + "_" + time + ".jpg";
+    string nm = _logPath + "/" + buf + _name + "_" + _time + ".jpg";
     nm = format_filename(nm);
-    string output = "/sdcard/img_tmp/" + name + ".jpg";
+
+    string output = "/sdcard/img_tmp/" + _name + ".jpg";
     output = format_filename(output);
+
     ESP_LOGD(logTag, "save to file: %s", nm.c_str());
     _img->SaveToFile(nm);
 }
 
-void ClassFlowImage::RemoveOldLogs()
+void ClassFlowImage::RemoveOldLogs(void)
 {
     if (!isLogImage)
     {
@@ -121,6 +132,7 @@ void ClassFlowImage::RemoveOldLogs()
     struct dirent *entry;
     int deleted = 0;
     int notDeleted = 0;
+
     while ((entry = readdir(dir)) != NULL)
     {
         string folderPath = imagesLocation + "/" + entry->d_name;
@@ -137,6 +149,7 @@ void ClassFlowImage::RemoveOldLogs()
             }
         }
     }
+
     ESP_LOGD(TAG, "Image folder deleted: %d | Image folder not deleted: %d", deleted, notDeleted);
     closedir(dir);
 }

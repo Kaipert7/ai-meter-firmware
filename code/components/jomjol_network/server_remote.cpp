@@ -42,7 +42,7 @@ void remote_send_http_response(httpd_req_t *req)
     message += "Please follow the below instructions.<p>";
     httpd_resp_send_chunk(req, message.c_str(), strlen(message.c_str()));
 
-    is_wlan_ini = file_exists(NETWORK_CONFIG_FILE);
+    is_wlan_ini = (file_exists(WLAN_CONFIG_FILE) || file_exists(NETWORK_CONFIG_FILE));
 
     if (!is_config_ini)
     {
@@ -65,6 +65,7 @@ void remote_send_http_response(httpd_req_t *req)
         message += "document.getElementById(\"doUpdate\").disabled = true;}";
         message += "</script>";
         httpd_resp_send_chunk(req, message.c_str(), strlen(message.c_str()));
+
         return;
     }
 
@@ -83,6 +84,7 @@ void remote_send_http_response(httpd_req_t *req)
         message += "api = \"/config?\"+\"ssid=\"+document.getElementById(\"ssid\").value+\"&pwd=\"+document.getElementById(\"password\").value;";
         message += "fetch(api);await new Promise(resolve => setTimeout(resolve, 1000));location.reload();}</script>";
         httpd_resp_send_chunk(req, message.c_str(), strlen(message.c_str()));
+
         return;
     }
 
@@ -100,6 +102,7 @@ esp_err_t remote_test_handler(httpd_req_t *req)
 {
     remote_send_http_response(req);
     httpd_resp_send_chunk(req, NULL, 0);
+
     return ESP_OK;
 }
 
@@ -107,25 +110,25 @@ esp_err_t remote_reboot_handler(httpd_req_t *req)
 {
     LogFile.WriteToFile(ESP_LOG_INFO, TAG, "Trigger reboot due to firmware update.");
     doRebootOTA();
+
     return ESP_OK;
 }
 
 esp_err_t remote_config_ini_handler(httpd_req_t *req)
 {
     LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "config_ini_handler");
+
     char _query[400];
     char _valuechar[100];
-    std::string fn = "/sdcard/firmware/";
-    std::string _task = "";
-    std::string ssid = "";
-    std::string pwd = "";
-    std::string hn = ""; // hostname
-    std::string ip = "";
-    std::string gw = ""; // gateway
-    std::string nm = ""; // netmask
-    std::string dns = "";
-    std::string rssithreshold = ""; // rssi threshold for WIFI roaming
-    std::string text = "";
+
+    std::string _ssid = "";
+    std::string _pwd = "";
+    std::string _hostname = "";
+    std::string _ip = "";
+    std::string _gateway = "";
+    std::string _netmask = "";
+    std::string _dns = "";
+    std::string _rssithreshold = ""; // rssi threshold for WIFI roaming
 
     if (httpd_req_get_url_query_str(req, _query, 400) == ESP_OK)
     {
@@ -134,150 +137,150 @@ esp_err_t remote_config_ini_handler(httpd_req_t *req)
         if (httpd_query_key_value(_query, "ssid", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "ssid is found: %s", _valuechar);
-            ssid = url_decode(std::string(_valuechar));
+            _ssid = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "pwd", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "pwd is found: %s", _valuechar);
-            pwd = url_decode(std::string(_valuechar));
+            _pwd = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "ssid", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "ssid is found: %s", _valuechar);
-            ssid = url_decode(std::string(_valuechar));
+            _ssid = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "hn", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "hostname is found: %s", _valuechar);
-            hn = url_decode(std::string(_valuechar));
+            _hostname = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "ip", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "ip is found: %s", _valuechar);
-            ip = url_decode(std::string(_valuechar));
+            _ip = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "gw", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "gateway is found: %s", _valuechar);
-            gw = url_decode(std::string(_valuechar));
+            _gateway = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "nm", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "netmask is found: %s", _valuechar);
-            nm = url_decode(std::string(_valuechar));
+            _netmask = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "dns", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "dns is found: %s", _valuechar);
-            dns = url_decode(std::string(_valuechar));
+            _dns = url_decode(std::string(_valuechar));
         }
 
         if (httpd_query_key_value(_query, "rssithreshold", _valuechar, 100) == ESP_OK)
         {
             ESP_LOGD(TAG, "rssithreshold is found: %s", _valuechar);
-            rssithreshold = url_decode(std::string(_valuechar));
+            _rssithreshold = url_decode(std::string(_valuechar));
         }
     }
 
-    FILE *configfilehandle = fopen(NETWORK_CONFIG_FILE, "w");
+    FILE *pFile = fopen(NETWORK_CONFIG_FILE, "w");
 
-    text = ";++++++++++++++++++++++++++++++++++\n";
+    std::string text = ";++++++++++++++++++++++++++++++++++\n";
     text += "; AI on the edge - WLAN configuration\n";
     text += "; ssid: Name of WLAN network (mandatory), e.g. \"WLAN-SSID\"\n";
     text += "; password: Password of WLAN network (mandatory), e.g. \"PASSWORD\"\n\n";
-    fputs(text.c_str(), configfilehandle);
+    fputs(text.c_str(), pFile);
 
-    if (ssid.length())
+    if (_ssid.length())
     {
-        ssid = "ssid = \"" + ssid + "\"\n";
+        _ssid = "ssid = \"" + _ssid + "\"\n";
     }
     else
     {
-        ssid = "ssid = \"\"\n";
+        _ssid = "ssid = \"\"\n";
     }
-    fputs(ssid.c_str(), configfilehandle);
+    fputs(_ssid.c_str(), pFile);
 
-    if (pwd.length())
+    if (_pwd.length())
     {
-        pwd = "password = \"" + pwd + "\"\n";
+        _pwd = "password = \"" + _pwd + "\"\n";
     }
     else
     {
-        pwd = "password = \"\"\n";
+        _pwd = "password = \"\"\n";
     }
-    fputs(pwd.c_str(), configfilehandle);
+    fputs(_pwd.c_str(), pFile);
 
     text = "\n;++++++++++++++++++++++++++++++++++\n";
     text += "; Hostname: Name of device in network\n";
     text += "; This parameter can be configured via WebUI configuration\n";
     text += "; Default: \"watermeter\", if nothing is configured\n\n";
-    fputs(text.c_str(), configfilehandle);
+    fputs(text.c_str(), pFile);
 
-    if (hn.length())
+    if (_hostname.length())
     {
-        hn = "hostname = \"" + hn + "\"\n";
+        _hostname = "hostname = \"" + _hostname + "\"\n";
     }
     else
     {
-        hn = ";hostname = \"watermeter\"\n";
+        _hostname = ";hostname = \"watermeter\"\n";
     }
-    fputs(hn.c_str(), configfilehandle);
+    fputs(_hostname.c_str(), pFile);
 
     text = "\n;++++++++++++++++++++++++++++++++++\n";
     text += "; Fixed IP: If you like to use fixed IP instead of DHCP (default), the following\n";
     text += "; parameters needs to be configured: ip, gateway, netmask are mandatory, dns optional\n\n";
-    fputs(text.c_str(), configfilehandle);
+    fputs(text.c_str(), pFile);
 
-    if (ip.length())
+    if (_ip.length())
     {
-        ip = "ip = \"" + ip + "\"\n";
+        _ip = "ip = \"" + _ip + "\"\n";
     }
     else
     {
-        ip = ";ip = \"xxx.xxx.xxx.xxx\"\n";
+        _ip = ";ip = \"xxx.xxx.xxx.xxx\"\n";
     }
-    fputs(ip.c_str(), configfilehandle);
+    fputs(_ip.c_str(), pFile);
 
-    if (gw.length())
+    if (_gateway.length())
     {
-        gw = "gateway = \"" + gw + "\"\n";
+        _gateway = "gateway = \"" + _gateway + "\"\n";
     }
     else
     {
-        gw = ";gateway = \"xxx.xxx.xxx.xxx\"\n";
+        _gateway = ";gateway = \"xxx.xxx.xxx.xxx\"\n";
     }
-    fputs(gw.c_str(), configfilehandle);
+    fputs(_gateway.c_str(), pFile);
 
-    if (nm.length())
+    if (_netmask.length())
     {
-        nm = "netmask = \"" + nm + "\"\n";
+        _netmask = "netmask = \"" + _netmask + "\"\n";
     }
     else
     {
-        nm = ";netmask = \"xxx.xxx.xxx.xxx\"\n";
+        _netmask = ";netmask = \"xxx.xxx.xxx.xxx\"\n";
     }
-    fputs(nm.c_str(), configfilehandle);
+    fputs(_netmask.c_str(), pFile);
 
     text = "\n;++++++++++++++++++++++++++++++++++\n";
     text += "; DNS server (optional, if no DNS is configured, gateway address will be used)\n\n";
-    fputs(text.c_str(), configfilehandle);
+    fputs(text.c_str(), pFile);
 
-    if (dns.length())
+    if (_dns.length())
     {
-        dns = "dns = \"" + dns + "\"\n";
+        _dns = "dns = \"" + _dns + "\"\n";
     }
     else
     {
-        dns = ";dns = \"xxx.xxx.xxx.xxx\"\n";
+        _dns = ";dns = \"xxx.xxx.xxx.xxx\"\n";
     }
-    fputs(dns.c_str(), configfilehandle);
+    fputs(_dns.c_str(), pFile);
 
     text = "\n;++++++++++++++++++++++++++++++++++\n";
     text += "; WIFI Roaming:\n";
@@ -288,20 +291,20 @@ esp_err_t remote_config_ini_handler(httpd_req_t *req)
     text += "; RSSI Threshold for client requested roaming query (RSSI < RSSIThreshold)\n";
     text += "; Note: This parameter can be configured via WebUI configuration\n";
     text += "; Default: 0 = Disable client requested roaming query\n\n";
-    fputs(text.c_str(), configfilehandle);
+    fputs(text.c_str(), pFile);
 
-    if (rssithreshold.length())
+    if (_rssithreshold.length())
     {
-        rssithreshold = "RSSIThreshold = " + rssithreshold + "\n";
+        _rssithreshold = "RSSIThreshold = " + _rssithreshold + "\n";
     }
     else
     {
-        rssithreshold = "RSSIThreshold = 0\n";
+        _rssithreshold = "RSSIThreshold = 0\n";
     }
-    fputs(rssithreshold.c_str(), configfilehandle);
+    fputs(_rssithreshold.c_str(), pFile);
 
-    fflush(configfilehandle);
-    fclose(configfilehandle);
+    fflush(pFile);
+    fclose(pFile);
 
     std::string zw = "ota without parameter - should not be the case!";
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -325,7 +328,6 @@ esp_err_t remote_upload_post_handler(httpd_req_t *req)
 
     LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "remote_upload_post_handler");
     char filepath[FILE_PATH_MAX];
-    FILE *fd = NULL;
 
     const char *filename = get_path_from_uri(filepath, "/sdcard", req->uri + sizeof("/upload") - 1, sizeof(filepath));
     if (!filename)
@@ -338,8 +340,8 @@ esp_err_t remote_upload_post_handler(httpd_req_t *req)
 
     delete_file(std::string(filepath));
 
-    fd = fopen(filepath, "w");
-    if (!fd)
+    FILE *pFile = fopen(filepath, "w");
+    if (!pFile)
     {
         ESP_LOGE(TAG, "Failed to create file: %s", filepath);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to create file");
@@ -365,7 +367,7 @@ esp_err_t remote_upload_post_handler(httpd_req_t *req)
                 continue;
             }
 
-            fclose(fd);
+            fclose(pFile);
             unlink(filepath);
 
             ESP_LOGE(TAG, "File reception failed!");
@@ -373,9 +375,9 @@ esp_err_t remote_upload_post_handler(httpd_req_t *req)
             return ESP_FAIL;
         }
 
-        if (received && (received != fwrite(buf, 1, received, fd)))
+        if (received && (received != fwrite(buf, 1, received, pFile)))
         {
-            fclose(fd);
+            fclose(pFile);
             unlink(filepath);
 
             ESP_LOGE(TAG, "File write failed!");
@@ -386,13 +388,13 @@ esp_err_t remote_upload_post_handler(httpd_req_t *req)
         remaining -= received;
     }
 
-    fclose(fd);
+    fclose(pFile);
     is_config_ini = true;
 
-    FILE *pfile = fopen("/sdcard/update.txt", "w");
-    std::string _s_zw = "/sdcard" + std::string(filename);
-    fwrite(_s_zw.c_str(), strlen(_s_zw.c_str()), 1, pfile);
-    fclose(pfile);
+    pFile = fopen("/sdcard/update.txt", "w");
+    std::string temp_string = "/sdcard" + std::string(filename);
+    fwrite(temp_string.c_str(), strlen(temp_string.c_str()), 1, pFile);
+    fclose(pFile);
 
     ESP_LOGI(TAG, "File reception complete");
     httpd_resp_set_hdr(req, "Location", "/test");
@@ -424,6 +426,7 @@ httpd_handle_t start_remote_webserver(void)
     }
 
     ESP_LOGI(TAG, "Error starting ap server!");
+
     return NULL;
 }
 
@@ -435,27 +438,27 @@ void stop_remote_webserver(httpd_handle_t server)
 httpd_handle_t remote_webserver_register_uri(httpd_handle_t server)
 {
     httpd_uri_t reboot_handle = {
-        .uri = "/reboot", // Match all URIs of type /path/to/file
+        .uri = "/reboot",
         .method = HTTP_GET,
         .handler = APPLY_BASIC_AUTH_FILTER(remote_reboot_handler),
-        .user_ctx = NULL // Pass server data as context
+        .user_ctx = NULL,
     };
     httpd_register_uri_handler(server, &reboot_handle);
 
     httpd_uri_t config_ini_handle = {
-        .uri = "/config", // Match all URIs of type /path/to/file
+        .uri = "/config",
         .method = HTTP_GET,
         .handler = APPLY_BASIC_AUTH_FILTER(remote_config_ini_handler),
-        .user_ctx = NULL // Pass server data as context
+        .user_ctx = NULL,
     };
     httpd_register_uri_handler(server, &config_ini_handle);
 
     /* URI handler for uploading files to server */
     httpd_uri_t file_uploadAP = {
-        .uri = "/upload/*", // Match all URIs of type /upload/path/to/file
+        .uri = "/upload/*",
         .method = HTTP_POST,
         .handler = APPLY_BASIC_AUTH_FILTER(remote_upload_post_handler),
-        .user_ctx = NULL // Pass server data as context
+        .user_ctx = NULL,
     };
     httpd_register_uri_handler(server, &file_uploadAP);
 
@@ -463,7 +466,8 @@ httpd_handle_t remote_webserver_register_uri(httpd_handle_t server)
         .uri = "*",
         .method = HTTP_GET,
         .handler = APPLY_BASIC_AUTH_FILTER(remote_test_handler),
-        .user_ctx = NULL};
+        .user_ctx = NULL,
+    };
     httpd_register_uri_handler(server, &test_uri);
 
     return NULL;

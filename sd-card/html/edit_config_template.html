@@ -212,6 +212,7 @@
 <script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
 <script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script> 
 
+<script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -929,8 +930,15 @@
             <td>$TOOLTIP_PostProcessing_PreValueAgeStartup</td>
         </tr>
 
+        <tr style="margin-top:12px">
+            <td class="indent1" style="padding-top:25px" colspan="3">
+                <b>The following parameters are configurable individually for each number sequence:</b>
+                <select style="font-weight: bold; margin-left:17px" id="Numbers_value1" onchange="numberChanged()"></select>
+            </td>
+        </tr>
+
         <tr class="expert">
-            <td class="indent1">
+            <td class="indent2">
                 <class id="PostProcessing_SkipErrorMessage_text" style="color:black;">Skip Messages on Error</class>
             </td>
             <td>
@@ -939,14 +947,7 @@
                     <option value="false" selected>disabled (false)</option>
                 </select>
             </td>
-            <td>$TOOLTIP_PostProcessing_SkipErrorMessage</td>
-        </tr>
-
-        <tr style="margin-top:12px">
-            <td class="indent1" style="padding-top:25px" colspan="3">
-                <b>The following parameters are configurable individually for each number sequence:</b>
-                <select style="font-weight: bold; margin-left:17px" id="Numbers_value1" onchange="numberChanged()"></select>
-            </td>
+            <td>$TOOLTIP_PostProcessing_NUMBER.SkipErrorMessage</td>
         </tr>
 
         <tr>
@@ -2173,7 +2174,6 @@
 
 <script type="text/javascript">
 var canvas = document.getElementById('canvas'),
-    domainname = getDomainname(),
     changeCamValue = 0,	
     param,
     category,
@@ -2204,13 +2204,9 @@ function cameraParameterChanged() {
 }
 
 function LoadConfigNeu() {
-    if (!loadConfig(domainname)) {
-        firework.launch('Configuration could not be loaded! Please reload the page!', 'danger', 30000);
-        return;
-    }
-	
-    param = getCamConfig();
+    param = getConfigParameters();
     category = getConfigCategory();
+	
     InitIndivParameter();
 
     UpdateInput();
@@ -2303,6 +2299,7 @@ function UpdateInputIndividual(sel) {
         ReadParameter(param, "PostProcessing", "MaxRateType", true, NUNBERSAkt);
         ReadParameter(param, "PostProcessing", "ExtendedResolution", false, NUNBERSAkt);
         ReadParameter(param, "PostProcessing", "IgnoreLeadingNaN", false, NUNBERSAkt);
+        ReadParameter(param, "PostProcessing", "SkipErrorMessage", false, NUNBERSAkt);
         ReadParameter(param, "PostProcessing", "AllowNegativeRates", false, NUNBERSAkt);
         ReadParameter(param, "InfluxDB", "Field", true, NUNBERSAkt);
         ReadParameter(param, "InfluxDBv2", "Field", true, NUNBERSAkt);
@@ -2322,6 +2319,7 @@ function UpdateInputIndividual(sel) {
     WriteParameter(param, category, "PostProcessing", "MaxRateType", true, NUNBERSAkt);
     WriteParameter(param, category, "PostProcessing", "ExtendedResolution", false, NUNBERSAkt);
     WriteParameter(param, category, "PostProcessing", "IgnoreLeadingNaN", false, NUNBERSAkt);
+    WriteParameter(param, category, "PostProcessing", "SkipErrorMessage", false, NUNBERSAkt);
     WriteParameter(param, category, "PostProcessing", "AllowNegativeRates", false, NUNBERSAkt);
     WriteParameter(param, category, "InfluxDB", "Field", true, NUNBERSAkt);
     WriteParameter(param, category, "InfluxDBv2", "Field", true, NUNBERSAkt);
@@ -2406,7 +2404,6 @@ function UpdateInput() {
     
     WriteParameter(param, category, "PostProcessing", "PreValueUse", false);		
     WriteParameter(param, category, "PostProcessing", "PreValueAgeStartup", true);		
-    WriteParameter(param, category, "PostProcessing", "SkipErrorMessage", false);
 
     WriteParameter(param, category, "MQTT", "Uri", true);	
     WriteParameter(param, category, "MQTT", "MainTopic", true);	
@@ -2580,7 +2577,6 @@ function ReadParameterAll() {
 
     ReadParameter(param, "PostProcessing", "PreValueUse", false);
     ReadParameter(param, "PostProcessing", "PreValueAgeStartup", true);
-    ReadParameter(param, "PostProcessing", "SkipErrorMessage", false);
 
     ReadParameter(param, "MQTT", "Uri", true);
     ReadParameter(param, "MQTT", "MainTopic", true);
@@ -2937,7 +2933,7 @@ function camSettingsSet(){
             try {
                 xhttp.open("GET", url, false);
                 xhttp.send();			
-            } catch (error){}				
+            } catch (error){ console.log(error); }				
             
             if (xhttp.responseText == "CamSettingsSet") {
                 document.getElementById("overlay").style.display = "none";
@@ -2953,7 +2949,7 @@ function camSettingsSet(){
                     _xhttp.open("GET", domainname + "/statusflow", false);
                     _xhttp.send();
                 }
-                catch (error){}
+                catch (error){ console.log(error); }
 
                 document.getElementById("overlaytext").innerHTML = "Device is busy, please wait.<br><br>Current step: " + _xhttp.responseText;
                 console.log("Device is busy, waiting 2s then checking again...");

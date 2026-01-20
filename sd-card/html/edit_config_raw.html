@@ -39,6 +39,11 @@
 <script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script>
 <script type="text/javascript" src="jquery-3.6.0.min.js?v=$COMMIT_HASH"></script>
 <script type="text/javascript" src="firework.js?v=$COMMIT_HASH"></script>
+
+<script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
+<script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
+	
+<script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -53,17 +58,15 @@
 	<hr>
 	<button class="button" onclick="saveTextAsFile()">Save Config</button>
 
-	<script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
-	<script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
-
 	<script type="text/javascript">
 		var canvas = document.getElementById('canvas'),
-			domainname = getDomainname(); 
-
-
+			param,
+			category;
+		
 	function LoadConfigNeu() {
-		domainname = getDomainname();  
-		loadConfig(domainname); 	
+        param = getConfigParameters();
+        category = getConfigCategory();
+		
 		document.getElementById("inputTextToSave").value = getConfig();
 		}
 
@@ -87,6 +90,5 @@
 	LoadConfigNeu();
 	
 	</script>
- 
 </body>
 </html>

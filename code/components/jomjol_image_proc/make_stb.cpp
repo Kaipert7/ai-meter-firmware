@@ -25,4 +25,4 @@
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "../stb/deprecated/stb_image_resize.h"
-// #include "../stb/stb_image_resize.h"
+// #include "../stb/stb_image_resize2.h"

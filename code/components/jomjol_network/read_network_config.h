@@ -16,7 +16,7 @@ struct network_config_t
     std::string eapid = "";
     std::string username = "";
     std::string password = "";
-    std::string hostname = "watermeter"; // Default: watermeter
+    std::string hostname = "watermeter";
     std::string ipaddress = "";
     std::string gateway = "";
     std::string netmask = "";

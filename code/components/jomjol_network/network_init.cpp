@@ -56,7 +56,15 @@ esp_err_t init_network(void)
 
     // Read Network parameter and start it
     // ********************************************
-    int iNetworkStatus = LoadNetworkFromFile(NETWORK_CONFIG_FILE);
+    int iNetworkStatus = -1;
+    if (file_exists(WLAN_CONFIG_FILE))
+    {
+        iNetworkStatus = LoadNetworkFromFile(WLAN_CONFIG_FILE);
+    }
+    else
+    {
+        iNetworkStatus = LoadNetworkFromFile(NETWORK_CONFIG_FILE);
+    }
 
     // Network config available (0) or SSID/password not configured (-2)
     if (file_exists(CONFIG_FILE) && ((iNetworkStatus == 0) || (iNetworkStatus == -2)))
@@ -191,7 +199,7 @@ esp_err_t init_network(void)
             return ESP_OK;
         }
     }
-    // network.ini not available (-1) and config.ini not available
+    // wlan.ini not available (-1) and config.ini not available
     else
     {
         network_config.connection_type = NETWORK_CONNECTION_WIFI_AP_SETUP;

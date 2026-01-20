@@ -368,15 +368,8 @@ std::string decrypt_pw_string(std::string toDecrypt)
 // Checks if all passwords on the SD are encrypted and if they are not encrypted, it encrypts them.
 esp_err_t encrypt_decrypt_pw_on_sd(bool _encrypt, std::string filename)
 {
-	std::string line = "";
-
-	std::vector<std::string> splitted;
-	std::vector<std::string> temp_file;
-
-	all_pw_were_encrypted = false;
-
-	std::string fn = format_filename(filename);
-	FILE *pFile = fopen(fn.c_str(), "r");
+	std::string _filename = format_filename(filename);
+	FILE *pFile = fopen(_filename.c_str(), "r");
 
 	if (pFile == NULL)
 	{
@@ -387,6 +380,7 @@ esp_err_t encrypt_decrypt_pw_on_sd(bool _encrypt, std::string filename)
 
 	ESP_LOGD(TAG, "EncryptDecryptConfigPwOnSD: config.ini opened");
 
+	std::string line = "";
 	char temp_line[256];
 
 	if (fgets(temp_line, sizeof(temp_line), pFile) == NULL)
@@ -400,6 +394,11 @@ esp_err_t encrypt_decrypt_pw_on_sd(bool _encrypt, std::string filename)
 	{
 		line = std::string(temp_line);
 	}
+
+	all_pw_were_encrypted = false;
+
+	std::vector<std::string> splitted;
+	std::vector<std::string> temp_file;
 
 	if (_encrypt)
 	{
@@ -425,7 +424,7 @@ esp_err_t encrypt_decrypt_pw_on_sd(bool _encrypt, std::string filename)
 						line = "apikey = " + encrypt_pw_string(splitted[1]) + "\n";
 					}
 				}
-				else if (filename == NETWORK_CONFIG_FILE)
+				else if ((filename == WLAN_CONFIG_FILE) || (filename == NETWORK_CONFIG_FILE))
 				{
 					if (_param == "PASSWORD")
 					{
@@ -474,7 +473,7 @@ esp_err_t encrypt_decrypt_pw_on_sd(bool _encrypt, std::string filename)
 						line = "apikey = " + decrypt_pw_string(splitted[1]) + "\n";
 					}
 				}
-				else if (filename == NETWORK_CONFIG_FILE)
+				else if ((filename == WLAN_CONFIG_FILE) || (filename == NETWORK_CONFIG_FILE))
 				{
 					if (_param == "PASSWORD")
 					{
@@ -505,7 +504,7 @@ esp_err_t encrypt_decrypt_pw_on_sd(bool _encrypt, std::string filename)
 	// Only write to the SD if not all passwords are encrypted
 	if ((all_pw_were_encrypted == false && _encrypt == true) || (all_pw_were_encrypted == true && _encrypt == false))
 	{
-		pFile = fopen(fn.c_str(), "w+");
+		pFile = fopen(_filename.c_str(), "w+");
 
 		if (pFile == NULL)
 		{
@@ -1140,16 +1139,16 @@ size_t find_delimiter_pos(string input, string delimiter)
 bool rename_file(string from, string to)
 {
 	// ESP_LOGI(logTag, "Renaming File: %s", from.c_str());
-	FILE *fpSourceFile = fopen(from.c_str(), "rb");
+	FILE *pFile = fopen(from.c_str(), "rb");
 
 	// Sourcefile does not exist otherwise there is a mistake when renaming!
-	if (!fpSourceFile)
+	if (!pFile)
 	{
 		ESP_LOGE(TAG, "RenameFile: File %s does not exist!", from.c_str());
 		return false;
 	}
 
-	fclose(fpSourceFile);
+	fclose(pFile);
 	rename(from.c_str(), to.c_str());
 
 	return true;
@@ -1175,15 +1174,15 @@ bool rename_folder(string from, string to)
 
 bool file_exists(string filename)
 {
-	FILE *fpSourceFile = fopen(filename.c_str(), "rb");
+	FILE *pFile = fopen(filename.c_str(), "rb");
 
 	// Sourcefile does not exist
-	if (!fpSourceFile)
+	if (!pFile)
 	{
 		return false;
 	}
 
-	fclose(fpSourceFile);
+	fclose(pFile);
 
 	return true;
 }
@@ -1207,16 +1206,16 @@ bool delete_file(string filename)
 {
 	// ESP_LOGI(logTag, "Deleting file: %s", filename.c_str());
 	/* Delete file */
-	FILE *fpSourceFile = fopen(filename.c_str(), "rb");
+	FILE *pFile = fopen(filename.c_str(), "rb");
 
 	// Sourcefile does not exist otherwise there is a mistake in copying!
-	if (!fpSourceFile)
+	if (!pFile)
 	{
 		ESP_LOGD(TAG, "DeleteFile: File %s existiert nicht!", filename.c_str());
 		return false;
 	}
 
-	fclose(fpSourceFile);
+	fclose(pFile);
 	unlink(filename.c_str());
 
 	return true;
@@ -1227,13 +1226,12 @@ bool copy_file(string input, string output)
 	input = format_filename(input);
 	output = format_filename(output);
 
-	if (to_upper(input).compare(NETWORK_CONFIG_FILE) == 0)
+	if ((to_upper(input).compare(WLAN_CONFIG_FILE) == 0) || (to_upper(input).compare(NETWORK_CONFIG_FILE) == 0))
 	{
 		ESP_LOGD(TAG, "wlan.ini kann nicht kopiert werden!");
 		return false;
 	}
 
-	char cTemp;
 	FILE *fpSourceFile = fopen(input.c_str(), "rb");
 
 	// Sourcefile existiert nicht sonst gibt es einen Fehler beim Kopierversuch!
@@ -1245,18 +1243,19 @@ bool copy_file(string input, string output)
 
 	FILE *fpTargetFile = fopen(output.c_str(), "wb");
 
-	// Code Section
+	char temp_char[1024];
 
 	// Read From The Source File - "Copy"
-	while (fread(&cTemp, 1, 1, fpSourceFile) == 1)
+	while (fread(&temp_char, 1, 1, fpSourceFile) == 1)
 	{
 		// Write To The Target File - "Paste"
-		fwrite(&cTemp, 1, 1, fpTargetFile);
+		fwrite(&temp_char, 1, 1, fpTargetFile);
 	}
 
 	// Close The Files
 	fclose(fpSourceFile);
 	fclose(fpTargetFile);
+
 	ESP_LOGD(TAG, "File copied: %s to %s", input.c_str(), output.c_str());
 
 	return true;
@@ -1466,7 +1465,6 @@ string round_output(double _in, int _anzNachkomma)
 {
 	std::stringstream stream;
 	int temp_value = _in;
-	//    ESP_LOGD(TAG, "AnzNachkomma: %d", _anzNachkomma);
 
 	if (_anzNachkomma > 0)
 	{

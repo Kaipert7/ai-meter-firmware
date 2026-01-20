@@ -99,6 +99,10 @@
     <script type="text/javascript" src="jquery-3.6.0.min.js?v=$COMMIT_HASH"></script>
     <script type="text/javascript" src="firework.js?v=$COMMIT_HASH"></script>
 
+    <script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
+    <script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
+
+    <script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -181,9 +185,6 @@
         </tr>
     </table>
 
-    <script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
-    <script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
-
     <script type="text/javascript">
         var canvas = document.getElementById('canvas'),
             ctx = canvas.getContext('2d'),
@@ -193,10 +194,9 @@
             aktindex = 0,
             refInfo,
             enhanceCon = false,
-            domainname = getDomainname(),
             neueref1,
             neueref2,
-            cofcat,	
+            category,	
             param;
     
         function doReboot() {
@@ -314,7 +314,7 @@
                             xhttp.open("GET", domainname + "/statusflow", false);
                             xhttp.send();
                         }
-                        catch (error){}
+                        catch (error){ console.log(error); }
 
                         document.getElementById("overlaytext").innerHTML = "Device is busy, waiting until the Digitization Round got completed (this can take several minutes)...<br><br>Current step: " + xhttp.responseText;
                         console.log("Device is busy, waiting 5s then checking again...");
@@ -429,14 +429,8 @@
             EnDisableItem(false, "savemarker", true);
             EnDisableItem(false, "enhancecontrast", true);
 
-            if (!loadConfig(domainname)) {
-                firework.launch('Configuration could not be loaded! Please reload the page!', 'danger', 30000);
-                return;
-            }
-
-            ParseConfig();
             param = getConfigParameters();
-            cofcat = getConfigCategory();
+            category = getConfigCategory();
 
             canvas.addEventListener('mousedown', mouseDown, false);
             canvas.addEventListener('mouseup', mouseUp, false);
@@ -515,7 +509,7 @@
                             xhttp.open("GET", domainname + "/statusflow", false);
                             xhttp.send();
                         }
-                        catch (error){}
+                        catch (error){ console.log(error); }
 
                         document.getElementById("overlaytext").innerHTML = "Device is busy, waiting until the Digitization Round got completed (this can take several minutes)...<br><br>Current step: " + xhttp.responseText;
                         console.log("Device is busy, waiting 5s then checking again...");

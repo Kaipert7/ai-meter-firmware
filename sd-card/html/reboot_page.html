@@ -18,6 +18,7 @@ p {font-size: 1em;}
 </style>
 
 <script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script> 
+<script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -32,9 +33,9 @@ p {font-size: 1em;}
 	</tr>
 </table>
 
-<script>
+<script type="text/javascript">
 function doReboot() {
-	var stringota = getDomainname() + "/reboot";
+	var stringota = domainname + "/reboot";
 	window.location = stringota;
 	window.location.href = stringota;
 	window.location.assign(stringota);

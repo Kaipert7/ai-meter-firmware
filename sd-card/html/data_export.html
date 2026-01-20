@@ -24,6 +24,12 @@
             font-size: 16px;
         }
     </style>
+	
+    <script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script>
+    <script type="text/javascript" src="jszip.min.js?v=$COMMIT_HASH"></script>
+    <script type="text/javascript" src="FileSaver.min.js?v=$COMMIT_HASH"></script>
+
+    <script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -34,10 +40,6 @@
     <hr>
     <p id=progress></p>
 
-<script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script>
-<script type="text/javascript" src="jszip.min.js?v=$COMMIT_HASH"></script>
-<script type="text/javascript" src="FileSaver.min.js?v=$COMMIT_HASH"></script>
-
 <script type="text/javascript">
 function startExportData() {  
     document.getElementById("progress").innerHTML = "Creating Export Data...<br>\n";
@@ -45,7 +47,7 @@ function startExportData() {
     // Get hostname
     try {
         var xhttp = new XMLHttpRequest();
-        xhttp.open("GET", getDomainname() + "/info?type=Hostname", false);
+        xhttp.open("GET", domainname + "/info?type=Hostname", false);
         xhttp.send();
         hostname = xhttp.responseText;
     }
@@ -64,7 +66,7 @@ function startExportData() {
     setStatus("Fetching File List...");
     try {
         var xhttp = new XMLHttpRequest();
-        xhttp.open("GET", getDomainname() + "/fileserver/log/data/", false);
+        xhttp.open("GET", domainname + "/fileserver/log/data/", false);
         xhttp.send();
         
         var parser = new DOMParser();
@@ -81,7 +83,7 @@ function startExportData() {
     
     for (a of list) {
         url = a.getAttribute("href");
-        urls.push(getDomainname() + url);
+        urls.push(domainname + url);
     }
     
     // Pack as zip and download

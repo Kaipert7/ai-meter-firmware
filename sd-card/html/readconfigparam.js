@@ -1,10 +1,24 @@
 var config_gesamt = "";
-var config_split = [];
+var config_gesamt_temp = "";
+
+var config_split = "";
+var config_split_temp = "";
+
 var param = [];
-var category;
-var ref = new Array(2);
+var param_temp = [];
+
+var namenumberslist = "";
+var datalist = "";
+var tflitelist = "";
+
+var category = [];
+var category_temp = [];
+
 var NUMBERS = new Array(0);
+var NUMBERS_temp = new Array(0);
+
 var REFERENCES = new Array(0);
+var REFERENCES_temp = new Array(0);
 
 var domainname_for_testing = "";
 
@@ -31,6 +45,10 @@ function getConfig() {
     return config_gesamt;
 }
 
+function getConfigCategory() {
+    return category;
+}
+
 function loadConfig(_domainname) {
 	config_gesamt = "";
 
@@ -48,22 +66,7 @@ function loadConfig(_domainname) {
     try {     
         xhttp.open("GET", url, false);
         xhttp.send();
-    } catch (error) {}
-	
-	return true;
-}
-
-function loadConfig1(_domainname) {
-    var xhttp = new XMLHttpRequest();
-    
-	try {
-        url = _domainname + '/fileserver/config/config.ini';     
-        xhttp.open("GET", url, false);
-        xhttp.send();
-        config_gesamt = xhttp.responseText;
-    } catch (error) {}
-    
-	return true;
+    } catch (error) { console.log(error); }
 }
 
 function SaveConfigToServer(_domainname){
@@ -86,7 +89,7 @@ function SaveConfigToServer(_domainname){
 
 function getNUMBERSList() {
     _domainname = getDomainname(); 
-    var namenumberslist = "";
+    namenumberslist = "";
 
     var xhttp = new XMLHttpRequest();
 	
@@ -103,7 +106,7 @@ function getNUMBERSList() {
         url = _domainname + '/editflow?task=namenumbers';     
         xhttp.open("GET", url, false);
         xhttp.send();
-    } catch (error) {}
+    } catch (error) { console.log(error); }
 
     namenumberslist = namenumberslist.split("\t");
 
@@ -129,7 +132,7 @@ function getDATAList() {
         url = _domainname + '/editflow?task=data';     
         xhttp.open("GET", url, false);
         xhttp.send();
-    } catch (error) {}
+    } catch (error) { console.log(error); }
 
     datalist = datalist.split("\t");
     datalist.pop();
@@ -139,7 +142,8 @@ function getDATAList() {
 }
 
 function getTFLITEList() {
-    _domainname = getDomainname(); 
+    _domainname = getDomainname();
+	
     tflitelist = "";
 
     var xhttp = new XMLHttpRequest();
@@ -157,7 +161,7 @@ function getTFLITEList() {
         url = _domainname + '/editflow?task=tflite';
         xhttp.open("GET", url, false);
         xhttp.send();
-    } catch (error) {}
+    } catch (error) { console.log(error); }
 
     tflitelist = tflitelist.split("\t");
     tflitelist.sort();
@@ -231,7 +235,7 @@ function ParseConfig() {
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "Model");
+    ParamAddValue(param, catname, "Model", 1, false, "/config/dig-cont_0712_s3_q.tflite");
     ParamAddValue(param, catname, "CNNGoodThreshold", 1, false, "0.5");
     ParamAddValue(param, catname, "ROIImagesLocation", 1, false, "/log/digit");
     ParamAddValue(param, catname, "ROIImagesRetention", 1, false, "3");
@@ -241,7 +245,7 @@ function ParseConfig() {
     category[catname]["enabled"] = false;
     category[catname]["found"] = false;
     param[catname] = new Object();
-    ParamAddValue(param, catname, "Model");
+    ParamAddValue(param, catname, "Model", 1, false, "/config/ana-cont_1300_s2.tflite");
     ParamAddValue(param, catname, "ROIImagesLocation", 1, false, "/log/analog");
     ParamAddValue(param, catname, "ROIImagesRetention", 1, false, "3");
 
@@ -253,7 +257,7 @@ function ParseConfig() {
     // ParamAddValue(param, catname, "PreValueUse", 1, true, "true");
     ParamAddValue(param, catname, "PreValueUse", 1, false, "true");
     ParamAddValue(param, catname, "PreValueAgeStartup", 1, false, "720");
-    ParamAddValue(param, catname, "SkipErrorMessage", 1, false, "false");
+    ParamAddValue(param, catname, "SkipErrorMessage", 1, true, "false");
     ParamAddValue(param, catname, "AllowNegativeRates", 1, true, "false");
     ParamAddValue(param, catname, "DecimalShift", 1, true, "0");
     ParamAddValue(param, catname, "AnalogToDigitTransitionStart", 1, true, "9.2");
@@ -378,12 +382,12 @@ function ParseConfig() {
      
     while (aktline < config_split.length){
         for (var cat in category) {
-            zw = cat.toUpperCase();
-            zw1 = "[" + zw + "]";
-            zw2 = ";[" + zw + "]";
+            var cat_temp = cat.toUpperCase();
+            var cat_aktive = "[" + cat_temp + "]";
+            var cat_inaktive = ";[" + cat_temp + "]";
             
-            if ((config_split[aktline].trim().toUpperCase() == zw1) || (config_split[aktline].trim().toUpperCase() == zw2)) {
-                if (config_split[aktline].trim().toUpperCase() == zw1) {
+            if ((config_split[aktline].trim().toUpperCase() == cat_aktive) || (config_split[aktline].trim().toUpperCase() == cat_inaktive)) {
+                if (config_split[aktline].trim().toUpperCase() == cat_aktive) {
                     category[cat]["enabled"] = true;
                 }
                 
@@ -396,43 +400,6 @@ function ParseConfig() {
         
         aktline++;
     }
-
-    // Make the downward compatiblity with DataLogging
-    if (category["DataLogging"]["found"] == false) {
-        category["DataLogging"]["found"] = true;
-        category["DataLogging"]["enabled"] = true;
-
-        param["DataLogging"]["DataLogActive"]["found"] = true;
-        param["DataLogging"]["DataLogActive"]["enabled"] = true;
-        param["DataLogging"]["DataLogActive"]["value1"] = "true";
-          
-        param["DataLogging"]["DataFilesRetention"]["found"] = true;
-        param["DataLogging"]["DataFilesRetention"]["enabled"] = true;
-        param["DataLogging"]["DataFilesRetention"]["value1"] = "3";
-    }
-
-    if (category["DataLogging"]["enabled"] == false) {
-        category["DataLogging"]["enabled"] = true
-    }
-
-    if (param["DataLogging"]["DataLogActive"]["enabled"] == false && param["DataLogging"]["DataLogActive"]["value1"] == "") {
-        param["DataLogging"]["DataLogActive"]["found"] = true;
-        param["DataLogging"]["DataLogActive"]["enabled"] = true;
-        param["DataLogging"]["DataLogActive"]["value1"] = "true";
-    }
-
-    if (param["DataLogging"]["DataFilesRetention"]["enabled"] == false && param["DataLogging"]["DataFilesRetention"]["value1"] == "") {
-        param["DataLogging"]["DataFilesRetention"]["found"] = true;
-        param["DataLogging"]["DataFilesRetention"]["enabled"] = true;
-        param["DataLogging"]["DataFilesRetention"]["value1"] = "3";
-    }
-
-    // Downward compatibility: Create RSSIThreshold if not available
-    if (param["System"]["RSSIThreshold"]["found"] == false) {
-        param["System"]["RSSIThreshold"]["found"] = true;
-        param["System"]["RSSIThreshold"]["enabled"] = false;
-        param["System"]["RSSIThreshold"]["value1"] = "0";
-    }
 }
 
 function ParamAddValue(param, _cat, _param, _anzParam = 1, _isNUMBER = false, _defaultValue = "", _checkRegExList = null) {
@@ -444,6 +411,19 @@ function ParamAddValue(param, _cat, _param, _anzParam = 1, _isNUMBER = false, _d
     param[_cat][_param]["defaultValue"] = _defaultValue;
     param[_cat][_param]["Numbers"] = _isNUMBER;
     param[_cat][_param].checkRegExList = _checkRegExList;
+	
+    if (_isNUMBER) {
+        for (var _num in NUMBERS) {
+            for (var j = 1; j <= param[_cat][_param]["anzParam"]; ++j) {
+                NUMBERS[_num][_cat][_param]["value"+j] = _defaultValue;
+            }
+        }
+    }
+    else {
+        for (var j = 1; j <= param[_cat][_param]["anzParam"]; ++j) {
+            param[_cat][_param]["value"+j] = _defaultValue;
+        }
+    }
 };
 
 function ParseConfigParamAll(_aktline, _catname) {
@@ -503,25 +483,28 @@ function ParamExtractValueAll(_param, _linesplit, _catname, _aktline, _iscom) {
         
         if (_AktPara.toUpperCase() == paramname.toUpperCase()) {
             while (_linesplit.length <= _param[_catname][paramname]["anzParam"]) {
-                _linesplit.push("");
+                // line contains no value, so the default value is loaded
+                _linesplit.push(_param[_catname][paramname]["defaultValue"]);
             }
 
             _param[_catname][paramname]["found"] = true;
             _param[_catname][paramname]["enabled"] = !_iscom;
             _param[_catname][paramname]["line"] = _aktline;
             
-            if (_param[_catname][paramname]["Numbers"] == true) {        // möglicher Multiusage
-                abc = getNUMBERS(_linesplit[0]);
-                abc[_catname][paramname] = new Object;
-                abc[_catname][paramname]["found"] = true;
-                abc[_catname][paramname]["enabled"] = !_iscom;
+            if (_param[_catname][paramname]["Numbers"] == true) {
+                // möglicher Multiusage
+                var _numbers = getNUMBERS(_linesplit[0]);
+                _numbers[_catname][paramname] = new Object;
+                _numbers[_catname][paramname]["found"] = true;
+                _numbers[_catname][paramname]["enabled"] = !_iscom;
      
                 for (var j = 1; j <= _param[_catname][paramname]["anzParam"]; ++j) {
-                    abc[_catname][paramname]["value"+j] = _linesplit[j];
+                    _numbers[_catname][paramname]["value"+j] = _linesplit[j];
                 }
 				
-                if (abc["name"] == "default") {
-                    for (_num in NUMBERS) {        // wert mit Default belegen
+                if (_numbers["name"] == "default") {
+                    for (var _num in NUMBERS) {
+                        // Assign value to default
                         if (NUMBERS[_num][_catname][paramname]["found"] == false) {
                             NUMBERS[_num][_catname][paramname]["found"] = true;
                             NUMBERS[_num][_catname][paramname]["enabled"] = !_iscom;
@@ -534,11 +517,7 @@ function ParamExtractValueAll(_param, _linesplit, _catname, _aktline, _iscom) {
                     }
                 }
             }
-            else {
-                _param[_catname][paramname]["found"] = true;
-                _param[_catname][paramname]["enabled"] = !_iscom;
-                _param[_catname][paramname]["line"] = _aktline;
-                    
+            else {  
                 for (var j = 1; j <= _param[_catname][paramname]["anzParam"]; ++j) {
                     _param[_catname][paramname]["value"+j] = _linesplit[j];
                 }
@@ -547,184 +526,9 @@ function ParamExtractValueAll(_param, _linesplit, _catname, _aktline, _iscom) {
     }
 }
 
-function getCamConfig() {			
-    ParseConfig();		
-
-    param["System"]["Tooltip"]["enabled"] = true;
-    param["Alignment"]["InitialRotate"]["enabled"] = true;
-			
-    param["TakeImage"]["WaitBeforeTakingPicture"]["enabled"] = true;
-    param["TakeImage"]["CamGainceiling"]["enabled"] = true;		// Image gain (GAINCEILING_x2, x4, x8, x16, x32, x64 or x128)
-    param["TakeImage"]["CamQuality"]["enabled"] = true;    		// 0 - 63
-    param["TakeImage"]["CamBrightness"]["enabled"] = true; 		// (-2 to 2) - set brightness
-    param["TakeImage"]["CamContrast"]["enabled"] = true;   		//-2 - 2
-    param["TakeImage"]["CamSaturation"]["enabled"] = true; 		//-2 - 2
-    param["TakeImage"]["CamSharpness"]["enabled"] = true;  		//-2 - 2
-    param["TakeImage"]["CamAutoSharpness"]["enabled"] = true;  	//(1 or 0)
-    param["TakeImage"]["CamSpecialEffect"]["enabled"] = true;	// 0 - 6
-    param["TakeImage"]["CamWbMode"]["enabled"] = true;        	// 0 to 4 - if awb_gain enabled (0 - Auto, 1 - Sunny, 2 - Cloudy, 3 - Office, 4 - Home)
-    param["TakeImage"]["CamAwb"]["enabled"] = true;           	// white balance enable (0 or 1)
-    param["TakeImage"]["CamAwbGain"]["enabled"] = true;       	// Auto White Balance enable (0 or 1)
-    param["TakeImage"]["CamAec"]["enabled"] = true;           	// auto exposure off (1 or 0)
-    param["TakeImage"]["CamAec2"]["enabled"] = true;          	// automatic exposure sensor  (0 or 1)
-    param["TakeImage"]["CamAeLevel"]["enabled"] = true;       	// auto exposure levels (-2 to 2)
-    param["TakeImage"]["CamAecValue"]["enabled"] = true;      	// set exposure manually  (0-1200)
-    param["TakeImage"]["CamAgc"]["enabled"] = true;           	// auto gain off (1 or 0)
-    param["TakeImage"]["CamAgcGain"]["enabled"] = true;       	// set gain manually (0 - 30)
-    param["TakeImage"]["CamBpc"]["enabled"] = true;          	// black pixel correction
-    param["TakeImage"]["CamWpc"]["enabled"] = true;           	// white pixel correction
-    param["TakeImage"]["CamRawGma"]["enabled"] = true;        	// (1 or 0)
-    param["TakeImage"]["CamLenc"]["enabled"] = true;          	// lens correction (1 or 0)
-    param["TakeImage"]["CamHmirror"]["enabled"] = true;       	// (0 or 1) flip horizontally
-    param["TakeImage"]["CamVflip"]["enabled"] = true;         	// Invert image (0 or 1)
-    param["TakeImage"]["CamDcw"]["enabled"] = true;           	// downsize enable (1 or 0)
-    param["TakeImage"]["CamDenoise"]["enabled"] = true;       	// The OV2640 does not support it, OV3660 and OV5640 (0 to 8)
-    param["TakeImage"]["CamZoom"]["enabled"] = true;
-    param["TakeImage"]["CamZoomOffsetX"]["enabled"] = true;
-    param["TakeImage"]["CamZoomOffsetY"]["enabled"] = true;
-    param["TakeImage"]["CamZoomSize"]["enabled"] = true;
-    param["TakeImage"]["LEDIntensity"]["enabled"] = true;
-
-    if (!param["System"]["Tooltip"]["found"]) {
-        param["System"]["Tooltip"]["found"] = true;
-        param["System"]["Tooltip"].value1 = 'true';
-    }
-
-    if (!param["Alignment"]["InitialRotate"]["found"]) {
-        param["Alignment"]["InitialRotate"]["found"] = true;
-        param["Alignment"]["InitialRotate"].value1 = 'false';
-    }
-
-    if (!param["TakeImage"]["WaitBeforeTakingPicture"]["found"]) {
-        param["TakeImage"]["WaitBeforeTakingPicture"]["found"] = true;
-        param["TakeImage"]["WaitBeforeTakingPicture"].value1 = '5';
-    }
-    if (!param["TakeImage"]["CamGainceiling"]["found"]) {
-        param["TakeImage"]["CamGainceiling"]["found"] = true;
-        // param["TakeImage"]["CamGainceiling"].value1 = '2';
-        param["TakeImage"]["CamGainceiling"].value1 = 'x8';
-    }
-    if (!param["TakeImage"]["CamQuality"]["found"]) {
-        param["TakeImage"]["CamQuality"]["found"] = true;
-        param["TakeImage"]["CamQuality"].value1 = '10';
-    }
-    if (!param["TakeImage"]["CamBrightness"]["found"]) {
-        param["TakeImage"]["CamBrightness"]["found"] = true;
-        param["TakeImage"]["CamBrightness"].value1 = '0';
-    }
-    if (!param["TakeImage"]["CamContrast"]["found"]) {
-        param["TakeImage"]["CamContrast"]["found"] = true;
-        param["TakeImage"]["CamContrast"].value1 = '0';
-    }
-    if (!param["TakeImage"]["CamSaturation"]["found"]) {
-        param["TakeImage"]["CamSaturation"]["found"] = true;
-        param["TakeImage"]["CamSaturation"].value1 = '0';
-    }
-    if (!param["TakeImage"]["CamSharpness"]["found"]) {
-        param["TakeImage"]["CamSharpness"]["found"] = true;
-        param["TakeImage"]["CamSharpness"].value1 = '0';
-    }
-    if (!param["TakeImage"]["CamAutoSharpness"]["found"]) {
-        param["TakeImage"]["CamAutoSharpness"]["found"] = true;
-        param["TakeImage"]["CamAutoSharpness"].value1 = 'false';
-    }			
-    if (!param["TakeImage"]["CamSpecialEffect"]["found"]) {
-        param["TakeImage"]["CamSpecialEffect"]["found"] = true;
-        param["TakeImage"]["CamSpecialEffect"].value1 = 'no_effect';
-    }		
-    if (!param["TakeImage"]["CamWbMode"]["found"]) {
-        param["TakeImage"]["CamWbMode"]["found"] = true;
-        param["TakeImage"]["CamWbMode"].value1 = 'auto';
-    }			
-    if (!param["TakeImage"]["CamAwb"]["found"]) {
-        param["TakeImage"]["CamAwb"]["found"] = true;
-        param["TakeImage"]["CamAwb"].value1 = 'true';
-    }
-    if (!param["TakeImage"]["CamAwbGain"]["found"]) {
-        param["TakeImage"]["CamAwbGain"]["found"] = true;
-        param["TakeImage"]["CamAwbGain"].value1 = 'true';
-    }
-    if (!param["TakeImage"]["CamAec"]["found"]) {
-        param["TakeImage"]["CamAec"]["found"] = true;
-        param["TakeImage"]["CamAec"].value1 = 'true';
-    }
-    if (!param["TakeImage"]["CamAec2"]["found"]) {
-        param["TakeImage"]["CamAec2"]["found"] = true;
-        param["TakeImage"]["CamAec2"].value1 = 'true';
-    }
-    if (!param["TakeImage"]["CamAeLevel"]["found"]) {
-        param["TakeImage"]["CamAeLevel"]["found"] = true;
-        param["TakeImage"]["CamAeLevel"].value1 = '2';
-    }
-    if (!param["TakeImage"]["CamAecValue"]["found"]) {
-        param["TakeImage"]["CamAecValue"]["found"] = true;
-        param["TakeImage"]["CamAecValue"].value1 = '600';
-    }
-    if (!param["TakeImage"]["CamAgc"]["found"]) {
-        param["TakeImage"]["CamAgc"]["found"] = true;
-        param["TakeImage"]["CamAgc"].value1 = 'true';
-    }
-    if (!param["TakeImage"]["CamAgcGain"]["found"]) {
-        param["TakeImage"]["CamAgcGain"]["found"] = true;
-        param["TakeImage"]["CamAgcGain"].value1 = '8';
-    }
-    if (!param["TakeImage"]["CamBpc"]["found"]) {
-        param["TakeImage"]["CamBpc"]["found"] = true;
-        param["TakeImage"]["CamBpc"].value1 = 'true';
-    }
-    if (!param["TakeImage"]["CamWpc"]["found"]) {
-        param["TakeImage"]["CamWpc"]["found"] = true;
-        param["TakeImage"]["CamWpc"].value1 = 'true';
-    }		
-    if (!param["TakeImage"]["CamRawGma"]["found"]) {
-        param["TakeImage"]["CamRawGma"]["found"] = true;
-        param["TakeImage"]["CamRawGma"].value1 = 'true';
-    }		
-    if (!param["TakeImage"]["CamLenc"]["found"]) {
-        param["TakeImage"]["CamLenc"]["found"] = true;
-        param["TakeImage"]["CamLenc"].value1 = 'true';
-    }			
-    if (!param["TakeImage"]["CamHmirror"]["found"]) {
-        param["TakeImage"]["CamHmirror"]["found"] = true;
-        param["TakeImage"]["CamHmirror"].value1 = 'false';
-    }
-    if (!param["TakeImage"]["CamVflip"]["found"]) {
-        param["TakeImage"]["CamVflip"]["found"] = true;
-        param["TakeImage"]["CamVflip"].value1 = 'false';
-    }
-    if (!param["TakeImage"]["CamDcw"]["found"]) {
-        param["TakeImage"]["CamDcw"]["found"] = true;
-        param["TakeImage"]["CamDcw"].value1 = 'true';
-    }
-    if (!param["TakeImage"]["CamDenoise"]["found"]) {
-        param["TakeImage"]["CamDenoise"]["found"] = true;
-        param["TakeImage"]["CamDenoise"].value1 = '0';
-    }
-    if (!param["TakeImage"]["CamZoom"]["found"]) {
-        param["TakeImage"]["CamZoom"]["found"] = true;
-        param["TakeImage"]["CamZoom"].value1 = 'false';
-    }
-    if (!param["TakeImage"]["CamZoomOffsetX"]["found"]) {
-        param["TakeImage"]["CamZoomOffsetX"]["found"] = true;
-        param["TakeImage"]["CamZoomOffsetX"].value1 = '0';
-    }
-    if (!param["TakeImage"]["CamZoomOffsetY"]["found"]) {
-        param["TakeImage"]["CamZoomOffsetY"]["found"] = true;
-        param["TakeImage"]["CamZoomOffsetY"].value1 = '0';
-    }
-    if (!param["TakeImage"]["CamZoomSize"]["found"]) {
-        param["TakeImage"]["CamZoomSize"]["found"] = true;
-        param["TakeImage"]["CamZoomSize"].value1 = '0';
-    }
-    if (!param["TakeImage"]["LEDIntensity"]["found"]) {
-        param["TakeImage"]["LEDIntensity"]["found"] = true;
-        param["TakeImage"]["LEDIntensity"].value1 = '50';
-    }
-
-    return param;	
-}
-
 function getConfigParameters() {
+	loadConfig(getDomainname());
+	ParseConfig(getDomainname());
     return param;
 }
 
@@ -739,48 +543,54 @@ function WriteConfigININew() {
     config_split = new Array(0);
 
     for (var cat in param) {
-        text = "[" + cat + "]";
+        var text_cat = "[" + cat + "]";
 		  
         if (!category[cat]["enabled"]) {
-            text = ";" + text;
+            text_cat = ";" + text_cat;
         }
         
-        config_split.push(text);
+        config_split.push(text_cat);
 
         for (var name in param[cat]) {
             if (param[cat][name]["Numbers"]) {
                 for (_num in NUMBERS) {
-                    text = NUMBERS[_num]["name"] + "." + name;
+                    var text_numbers = NUMBERS[_num]["name"] + "." + name;
 
-                    var text = text + " =" 
+                    text_numbers = text_numbers + " =" 
                          
                     for (var j = 1; j <= param[cat][name]["anzParam"]; ++j) {
                         if (!(typeof NUMBERS[_num][cat][name]["value"+j] == 'undefined')) {
-                            text = text + " " + NUMBERS[_num][cat][name]["value"+j];
+                            text_numbers = text_numbers + " " + NUMBERS[_num][cat][name]["value"+j];
+                        }
+                        else {
+                            text_numbers = text_numbers + " " + NUMBERS[_num][cat][name]["defaultValue"];
                         }
                     }
 						 
-                    if (!NUMBERS[_num][cat][name]["enabled"]) {
-                        text = ";" + text;
+                    if ((!category[cat]["enabled"]) || (!NUMBERS[_num][cat][name]["enabled"])) {
+                        text_numbers = ";" + text_numbers;
                     }
 						 
-                    config_split.push(text);
+                    config_split.push(text_numbers);
                 }
             }
             else {
-                var text = name + " =" 
+                var text_name = name + " =" 
                     
                 for (var j = 1; j <= param[cat][name]["anzParam"]; ++j) {
                     if (!(typeof param[cat][name]["value"+j] == 'undefined')) {
-                        text = text + " " + param[cat][name]["value"+j];
+                        text_name = text_name + " " + param[cat][name]["value"+j];
+                    }
+                    else {
+                        text_name = text_name + " " + param[cat][name]["defaultValue"];
                     }
                 }
 					
-                if (!param[cat][name]["enabled"]) {
-                    text = ";" + text;
+                if ((!category[cat]["enabled"]) || (!param[cat][name]["enabled"])) {
+                    text_name = ";" + text_name;
                 }
 					
-                config_split.push(text);
+                config_split.push(text_name);
             }
         }
 		  
@@ -788,13 +598,13 @@ function WriteConfigININew() {
             for (var _roi in NUMBERS) {
                 if (NUMBERS[_roi]["digit"].length > 0) {
                     for (var _roiddet in NUMBERS[_roi]["digit"]) {
-                        text = NUMBERS[_roi]["name"] + "." + NUMBERS[_roi]["digit"][_roiddet]["name"];
-                        text = text + " " + NUMBERS[_roi]["digit"][_roiddet]["x"];
-                        text = text + " " + NUMBERS[_roi]["digit"][_roiddet]["y"];
-                        text = text + " " + NUMBERS[_roi]["digit"][_roiddet]["dx"];
-                        text = text + " " + NUMBERS[_roi]["digit"][_roiddet]["dy"];
-                        text = text + " " + NUMBERS[_roi]["digit"][_roiddet]["CCW"];
-                        config_split.push(text);
+                        var text_digital = NUMBERS[_roi]["name"] + "." + NUMBERS[_roi]["digit"][_roiddet]["name"];
+                        text_digital = text_digital + " " + NUMBERS[_roi]["digit"][_roiddet]["x"];
+                        text_digital = text_digital + " " + NUMBERS[_roi]["digit"][_roiddet]["y"];
+                        text_digital = text_digital + " " + NUMBERS[_roi]["digit"][_roiddet]["dx"];
+                        text_digital = text_digital + " " + NUMBERS[_roi]["digit"][_roiddet]["dy"];
+                        text_digital = text_digital + " " + NUMBERS[_roi]["digit"][_roiddet]["CCW"];
+                        config_split.push(text_digital);
                     }
                 }
             }
@@ -804,13 +614,13 @@ function WriteConfigININew() {
             for (var _roi in NUMBERS) {
                 if (NUMBERS[_roi]["analog"].length > 0) {
                     for (var _roiddet in NUMBERS[_roi]["analog"]) {
-                        text = NUMBERS[_roi]["name"] + "." + NUMBERS[_roi]["analog"][_roiddet]["name"];
-                        text = text + " " + NUMBERS[_roi]["analog"][_roiddet]["x"];
-                        text = text + " " + NUMBERS[_roi]["analog"][_roiddet]["y"];
-                        text = text + " " + NUMBERS[_roi]["analog"][_roiddet]["dx"];
-                        text = text + " " + NUMBERS[_roi]["analog"][_roiddet]["dy"];
-                        text = text + " " + NUMBERS[_roi]["analog"][_roiddet]["CCW"];
-                        config_split.push(text);
+                        var text_analog = NUMBERS[_roi]["name"] + "." + NUMBERS[_roi]["analog"][_roiddet]["name"];
+                        text_analog = text_analog + " " + NUMBERS[_roi]["analog"][_roiddet]["x"];
+                        text_analog = text_analog + " " + NUMBERS[_roi]["analog"][_roiddet]["y"];
+                        text_analog = text_analog + " " + NUMBERS[_roi]["analog"][_roiddet]["dx"];
+                        text_analog = text_analog + " " + NUMBERS[_roi]["analog"][_roiddet]["dy"];
+                        text_analog = text_analog + " " + NUMBERS[_roi]["analog"][_roiddet]["CCW"];
+                        config_split.push(text_analog);
                     }
                 }
             }
@@ -818,10 +628,10 @@ function WriteConfigININew() {
 		  
         if (cat == "Alignment") {
             for (var _roi in REFERENCES) {
-                text = REFERENCES[_roi]["name"];
-                text = text + " " + REFERENCES[_roi]["x"];
-                text = text + " " + REFERENCES[_roi]["y"];
-                config_split.push(text);
+                var text_alignment = REFERENCES[_roi]["name"];
+                text_alignment = text_alignment + " " + REFERENCES[_roi]["x"];
+                text_alignment = text_alignment + " " + REFERENCES[_roi]["y"];
+                config_split.push(text_alignment);
             }
         }
 
@@ -838,33 +648,6 @@ function isCommented(input) {
     }
 		  
     return [isComment, input];
-}    
-
-function SaveConfigToServer(_domainname){
-    // leere Zeilen am Ende löschen
-    var zw = config_split.length - 1;
-	 
-    while (config_split[zw] == "") {
-        config_split.pop();
-    }
-
-    var config_gesamt = "";
-	 
-    for (var i = 0; i < config_split.length; ++i)
-    {
-        config_gesamt = config_gesamt + config_split[i] + "\n";
-    } 
-
-    FileDeleteOnServer("/config/config.ini", _domainname);
-    FileSendContent(config_gesamt, "/config/config.ini", _domainname);          
-}
-
-function getConfig() {
-    return config_gesamt;
-}
-
-function getConfigCategory() {
-    return category;
 }
 
 function ExtractROIs(_aktline, _type){
@@ -903,8 +686,9 @@ function getNUMBERS(_name, _type, _create = true) {
         }
     }
 
-    if (!_create) {         // nicht gefunden und soll auch nicht erzeugt werden, ggf. geht eine NULL zurück
-          return _ret;
+    if (!_create) {         
+        // nicht gefunden und soll auch nicht erzeugt werden, ggf. geht eine NULL zurück
+        return _ret;
     }
 
     if (_ret == -1) {
@@ -931,7 +715,8 @@ function getNUMBERS(_name, _type, _create = true) {
         NUMBERS.push(_ret);
     }
 
-    if (typeof _type == 'undefined') {            // muss schon existieren !!! - also erst nach Digits / Analog aufrufen
+    if (typeof _type == 'undefined') {
+        // muss schon existieren !!! - also erst nach Digits / Analog aufrufen
         return _ret;
     }
 
@@ -940,66 +725,6 @@ function getNUMBERS(_name, _type, _create = true) {
     _ret[_type].push(neuroi);
 
     return neuroi;
-}
-
-function CopyReferenceToImgTmp(_domainname) {
-    for (index = 0; index < 2; ++index) {
-        _filenamevon = REFERENCES[index]["name"];
-        _filenamenach = _filenamevon.replace("/config/", "/img_tmp/");
-        FileDeleteOnServer(_filenamenach, _domainname);
-        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
-     
-        _filenamevon = _filenamevon.replace(".jpg", "_org.jpg");
-        _filenamenach = _filenamenach.replace(".jpg", "_org.jpg");
-        FileDeleteOnServer(_filenamenach, _domainname);
-        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
-    }
-}
-
-function GetReferencesInfo(){
-    return REFERENCES;
-}
-
-function UpdateConfigReferences(_domainname){
-    for (var index = 0; index < 2; ++index) {
-        _filenamenach = REFERENCES[index]["name"];
-        _filenamevon = _filenamenach.replace("/config/", "/img_tmp/");
-        FileDeleteOnServer(_filenamenach, _domainname);
-        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
-     
-        _filenamenach = _filenamenach.replace(".jpg", "_org.jpg");
-        _filenamevon = _filenamevon.replace(".jpg", "_org.jpg");
-        FileDeleteOnServer(_filenamenach, _domainname);
-        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
-    }
-}
-
-function UpdateConfigReference(_anzneueref, _domainname){
-    var index = 0;
-
-    if (_anzneueref == 1) {	
-        index = 0;
-    }
-
-    else if (_anzneueref == 2) {
-        index = 1;
-    }
-
-    _filenamenach = REFERENCES[index]["name"];
-    _filenamevon = _filenamenach.replace("/config/", "/img_tmp/");
-
-    FileDeleteOnServer(_filenamenach, _domainname);
-    FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
-
-    _filenamenach = _filenamenach.replace(".jpg", "_org.jpg");
-    _filenamevon = _filenamevon.replace(".jpg", "_org.jpg");
-
-    FileDeleteOnServer(_filenamenach, _domainname);
-    FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
-}	
-
-function getNUMBERInfo(){
-     return NUMBERS;
 }
 
 function RenameNUMBER(_alt, _neu){
@@ -1096,6 +821,34 @@ function CreateNUMBER(_numbernew){
     return "";
 }
 
+function DeleteNUMBER(_delte) {
+    if (NUMBERS.length == 1) {
+        return "The last number cannot be deleted"
+    }
+	
+    index = -1;
+    
+    for (i = 0; i < NUMBERS.length; ++i) {
+        if (NUMBERS[i]["name"] == _delte) {
+            index = i;
+        }
+    }
+
+    if (index > -1) {
+        NUMBERS.splice(index, 1);
+    }
+
+    return "";
+}
+
+function GetReferencesInfo(){
+    return REFERENCES;
+}
+
+function getNUMBERInfo(){
+     return NUMBERS;
+}
+
 function getROIInfo(_typeROI, _number){
     index = -1;
     
@@ -1148,26 +901,6 @@ function RenameROI(_number, _type, _alt, _neu){
 
     NUMBERS[_indexnumber][_type][index]["name"] = _neu;
      
-    return "";
-}
-
-function DeleteNUMBER(_delte) {
-    if (NUMBERS.length == 1) {
-        return "The last number cannot be deleted"
-    }
-	
-    index = -1;
-    
-    for (i = 0; i < NUMBERS.length; ++i) {
-        if (NUMBERS[i]["name"] == _delte) {
-            index = i;
-        }
-    }
-
-    if (index > -1) {
-        NUMBERS.splice(index, 1);
-    }
-
     return "";
 }
 

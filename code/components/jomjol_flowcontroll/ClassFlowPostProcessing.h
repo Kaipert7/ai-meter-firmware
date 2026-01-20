@@ -16,7 +16,6 @@ protected:
     bool UpdatePreValueINI;
 
     int PreValueAgeStartup;
-    bool SkipErrorMessage;
 
     ClassFlowCNNGeneral *flowAnalog;
     ClassFlowCNNGeneral *flowDigit;
@@ -32,11 +31,12 @@ protected:
 
     void InitNUMBERS();
 
-    void handleDecimalSeparator(std::string _decsep, std::string _value);
+    void handleDecimalShift(std::string _decsep, std::string _value);
     void handleMaxRateValue(std::string _decsep, std::string _value);
-    void handleDecimalExtendedResolution(std::string _decsep, std::string _value);
+    void handleExtendedResolution(std::string _decsep, std::string _value);
     void handleMaxRateType(std::string _decsep, std::string _value);
     void handleAnalogToDigitTransitionStart(std::string _decsep, std::string _value);
+    void handleSkipErrorMessage(std::string _decsep, std::string _value);
     void handleAllowNegativeRate(std::string _decsep, std::string _value);
     void handleIgnoreLeadingNaN(std::string _decsep, std::string _value);
     void handleChangeRateThreshold(std::string _decsep, std::string _value);

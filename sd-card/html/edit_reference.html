@@ -118,6 +118,10 @@
     <script type="text/javascript" src="jquery-3.6.0.min.js?v=$COMMIT_HASH"></script>
     <script type="text/javascript" src="firework.js?v=$COMMIT_HASH"></script>
 
+    <script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
+    <script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
+	
+    <script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -390,12 +394,8 @@
     <b>Reference Image:</b><br>
     <canvas id="canvas"></canvas>
 
-    <script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>
-    <script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>
-
     <script type="text/javascript">
         var canvas = document.getElementById('canvas'),
-        domainname = getDomainname(),
         context = canvas.getContext('2d'),
         imageObj = new Image(),
         isActReference = false,
@@ -584,7 +584,7 @@
                     try {
                         xhttp.open("GET", url, false);
                         xhttp.send();
-                    } catch (error){}				
+                    } catch (error){ console.log(error); }				
             
                     if (xhttp.responseText != "DeviceIsBusy") {
                         var _url = domainname + "/img_tmp/raw.jpg" + "?session=" + Math.floor((Math.random() * 1000000) + 1);						
@@ -605,7 +605,7 @@
                             _xhttp.open("GET", domainname + "/statusflow", false);
                             _xhttp.send();
                         }
-                        catch (error){}
+                        catch (error){ console.log(error); }
 
                         document.getElementById("overlaytext").innerHTML = "Device is busy, please wait.<br><br>Current step: " + _xhttp.responseText;
                         console.log("Device is busy, waiting 5s then checking again...");
@@ -724,7 +724,7 @@
                     try {
                         xhttp.open("GET", url, false);
                         xhttp.send();
-                    } catch (error){}				
+                    } catch (error){ console.log(error); }				
             
                     if (xhttp.responseText == "CamSettingsSet") {
 						document.getElementById("overlay").style.display = "none";
@@ -740,7 +740,7 @@
                             _xhttp.open("GET", domainname + "/statusflow", false);
                             _xhttp.send();
                         }
-                        catch (error){}
+                        catch (error){ console.log(error); }
 
                         document.getElementById("overlaytext").innerHTML = "Device is busy, plase waiting...<br><br>Current step: " + _xhttp.responseText;
                         console.log("Device is busy, waiting 2s then checking again...");
@@ -871,12 +871,7 @@
         function init() {
             openDescription();		
 	
-            if (!loadConfig(domainname)) {
-				firework.launch('Configuration could not be loaded! Please reload the page!', 'danger', 30000);
-				return;
-            }		
-			
-            param = getCamConfig();
+			param = getConfigParameters();
 			category = getConfigCategory();
 			
 			canvas.addEventListener('mousemove', mouseMove, false);			

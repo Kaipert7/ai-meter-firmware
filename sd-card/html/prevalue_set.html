@@ -59,6 +59,14 @@
     }
     </style>
 
+    <link href="firework.css?v=$COMMIT_HASH" rel="stylesheet">
+    <script type="text/javascript" src="jquery-3.6.0.min.js?v=$COMMIT_HASH"></script>  
+    <script type="text/javascript" src="firework.js?v=$COMMIT_HASH"></script>
+
+    <script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script> 
+    <script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>  
+    <script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script> 
+    <script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -129,20 +137,10 @@
         </tr>	 
     </table>
 
-</body>
-</html>
-
-<link href="firework.css?v=$COMMIT_HASH" rel="stylesheet">
-<script type="text/javascript" src="jquery-3.6.0.min.js?v=$COMMIT_HASH"></script>  
-<script type="text/javascript" src="firework.js?v=$COMMIT_HASH"></script>
-
-<script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script> 
-<script type="text/javascript" src="readconfigcommon.js?v=$COMMIT_HASH"></script>  
-<script type="text/javascript" src="readconfigparam.js?v=$COMMIT_HASH"></script>  
-
 <script type="text/javascript">
- 	var domainname = getDomainname(); 
-  var	NUMBERS;
+ 	var NUMBERS,
+		param,
+		category;
 
 function setprevalue() {
 	var inputVal = document.getElementById("myInput").value;
@@ -158,8 +156,7 @@ function setprevalue() {
           document.getElementById("result").innerHTML=response;
           firework.launch('New \"previous value\" set', 'success', 5000);
      }
-    catch (error)
-    {
+    catch (error) {
       firework.launch('Failed to get data from device!', 'danger', 30000);
     }
 }
@@ -177,8 +174,7 @@ function loadPrevalue(_domainname) {
       response = xhttp.responseText;
       document.getElementById("prevalue").innerHTML=response;
   }
-  catch (error)
-  {
+  catch (error) {
     firework.launch('Failed to get data from device!', 'danger', 30000);
   }
 
@@ -203,12 +199,10 @@ function loadPrevalue(_domainname) {
       }
     });
   }
-  catch (error)
-  {
+  catch (error) {
     firework.launch('Failed to get data from device!', 'danger', 30000);
   }
 }
-
 
 function numberChanged(){
   loadPrevalue(domainname);
@@ -240,14 +234,15 @@ function UpdateNUMBERS(_sel){
     loadPrevalue(domainname);
 }
 
-
 function init(){
-  domainname = getDomainname();
-  loadConfig(domainname); 
-  ParseConfig();
+  param = getConfigParameters();
+  category = getConfigCategory();
+  
   UpdateNUMBERS();
   loadPrevalue(domainname);
 }
 
 init();
 </script>
+</body>
+</html>

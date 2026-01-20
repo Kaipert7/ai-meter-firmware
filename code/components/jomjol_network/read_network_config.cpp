@@ -244,7 +244,6 @@ bool ChangeHostName(std::string filename, std::string _newhostname)
 
     filename = format_filename(filename);
     FILE *pFile = fopen(filename.c_str(), "r");
-
     if (pFile == NULL)
     {
         LogFile.WriteToFile(ESP_LOG_ERROR, TAG, "ChangeHostName: unable to open wlan.ini (read)");
@@ -338,7 +337,6 @@ bool ChangeRSSIThreshold(std::string filename, int _newrssithreshold)
 
     filename = format_filename(filename);
     FILE *pFile = fopen(filename.c_str(), "r");
-
     if (pFile == NULL)
     {
         LogFile.WriteToFile(ESP_LOG_ERROR, TAG, "ChangeRSSIThreshold: unable to open wlan.ini (read)");
@@ -435,7 +433,6 @@ esp_err_t GetAuthWebUIConfig(std::string filename)
 {
     filename = format_filename(filename);
     FILE *pFile = fopen(filename.c_str(), "r");
-
     if (pFile == NULL)
     {
         LogFile.WriteToFile(ESP_LOG_ERROR, TAG, "GetAuthWebUIConfig: unable to open wlan.ini (read)");

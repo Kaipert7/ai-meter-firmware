@@ -15,15 +15,15 @@ protected:
 	unsigned short imagesRetention;
 	const char *logTag;
 
-	string CreateLogFolder(string time);
-	void LogImage(string logPath, string name, float *resultFloat, int *resultInt, string time, CImageBasis *_img);
+	string CreateLogFolder(string _time);
+	void LogImage(string _logPath, string _name, float *_resultFloat, int *_resultInt, string _time, CImageBasis *_img);
 
 public:
-	ClassFlowImage(const char *logTag);
-	ClassFlowImage(std::vector<ClassFlow *> *lfc, const char *logTag);
-	ClassFlowImage(std::vector<ClassFlow *> *lfc, ClassFlow *_prev, const char *logTag);
+	ClassFlowImage(const char *_logTag);
+	ClassFlowImage(std::vector<ClassFlow *> *_lfc, const char *_logTag);
+	ClassFlowImage(std::vector<ClassFlow *> *_lfc, ClassFlow *_prev, const char *_logTag);
 
-	void RemoveOldLogs();
+	void RemoveOldLogs(void);
 };
 
 #endif // CLASSFLOWIMAGE_H

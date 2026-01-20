@@ -57,15 +57,19 @@ body, html {
 }
 
 </style>
+
+<script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script>
+<script type="text/javascript">var domainname = getDomainname();</script>
+	
 <script type="text/javascript">
     function resizeIframe(obj) {
         obj.style.height = obj.contentWindow.document.documentElement.scrollHeight + 20 + 'px';
     }
 </script>
+
 </head>
 
 <body style="font-family: arial">
-
     <table style="border: none">
         <tr>
             <td style="padding-right: 10px;"><img src="favicon.ico?v=$COMMIT_HASH"></td>
@@ -96,7 +100,6 @@ body, html {
         </tr>
     </table>
 
-
     <div class="h_iframe_explain" id="h_iframe_explain">
         <iframe name="explaincontent" id ="explaincontent" src="" allowfullscreen></iframe>
     </div>
@@ -106,8 +109,6 @@ body, html {
         <iframe name="stream" id ="stream" src="" display="none" allowfullscreen></iframe>
     </div>
 
-
-<script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script> 
 <script type="text/javascript">
     var aktstep = 0;
     var setupCompleted = false;
@@ -189,7 +190,7 @@ body, html {
             setupCompleted = false;
 
             setTimeout(function() {
-                document.getElementById('stream').src = getDomainname() + '/stream?flashlight=true';   // needs to be the last statement because it's kind of blocking
+                document.getElementById('stream').src = domainname + '/stream?flashlight=true';   // needs to be the last statement because it's kind of blocking
                 document.getElementById('stream').style.display = "";
             }, 500);
             break;
@@ -308,7 +309,7 @@ body, html {
    }
 
    function loadRSSI() {
-		url = getDomainname() + '/rssi';     
+		url = domainname + '/rssi';     
 		var xhttp = new XMLHttpRequest();
 		xhttp.onreadystatechange = function() {
 			if (this.readyState == 4 && this.status == 200) {
@@ -339,6 +340,5 @@ body, html {
    LoadStep();
 
 </script>
-
 </body>
 </html>

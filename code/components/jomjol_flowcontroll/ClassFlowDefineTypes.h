@@ -59,6 +59,7 @@ struct NumberPost
     string ReturnPreValue;              // lastValidValueStr; corrected return value without error message
     bool ErrorMessage;                  //
     string ErrorMessageText;            // errorMessage; Error message for consistency checks
+    bool SkipErrorMessage;
     int AnzahlAnalog;                   // numAnalogRoi; number of analog ROIs used in this sequence
     int AnzahlDigit;                    // numDigitRoi; number of digit ROIs used in this sequence
     int DecimalShift;                   // decimalShift; each increment shifts the decimal separator by one digit; value=value*10^decimalShift; pos. value shifts to the right
@@ -74,7 +75,7 @@ struct NumberPost
     string FieldV2;       // influxdbFieldName_v2; Name of the Field in InfluxDBv2
     string MeasurementV2; // influxdbMeasurementName_v2; Name of the Measurement in InfluxDBv2
 
-    bool isExtendedResolution; // extendResolution; Adds the decimal place of the least significant analog ROI to the value
+    bool ExtendedResolution; // extendResolution; Adds the decimal place of the least significant analog ROI to the value
 
     general *digit_roi;  // digitRoi; set of digit ROIs for the sequence
     general *analog_roi; // analogRoi; set of analog ROIs for the sequence

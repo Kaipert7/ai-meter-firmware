@@ -109,7 +109,7 @@ function FileCopyOnServer(_source, _target, _domainname = "") {
 	try {
         xhttp.open("GET", url, false);
         xhttp.send();
-	} catch (error) {}
+	} catch (error) { console.log(error); }
 }
 
 function FileDeleteOnServer(_filename, _domainname = "") {
@@ -128,7 +128,7 @@ function FileDeleteOnServer(_filename, _domainname = "") {
         var url = _domainname + "/delete" + _filename;
         xhttp.open("POST", url, false);
         xhttp.send();
-    } catch (error) {}
+    } catch (error) { console.log(error); }
 
     return okay;
 }
@@ -155,9 +155,61 @@ function FileSendContent(_content, _filename, _domainname = "") {
         upload_path = _domainname + "/upload" + _filename;
         xhttp.open("POST", upload_path, false);
         xhttp.send(_content);
-    } catch (error) {}
+    } catch (error) { console.log(error); }
 	
     return okay;        
+}
+
+function CopyReferenceToImgTmp(_domainname) {
+    for (index = 0; index < 2; ++index) {
+        _filenamevon = REFERENCES[index]["name"];
+        _filenamenach = _filenamevon.replace("/config/", "/img_tmp/");
+        FileDeleteOnServer(_filenamenach, _domainname);
+        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
+     
+        _filenamevon = _filenamevon.replace(".jpg", "_org.jpg");
+        _filenamenach = _filenamenach.replace(".jpg", "_org.jpg");
+        FileDeleteOnServer(_filenamenach, _domainname);
+        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
+    }
+}
+
+function UpdateConfigReferences(_domainname){
+    for (var index = 0; index < 2; ++index) {
+        _filenamenach = REFERENCES[index]["name"];
+        _filenamevon = _filenamenach.replace("/config/", "/img_tmp/");
+        FileDeleteOnServer(_filenamenach, _domainname);
+        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
+     
+        _filenamenach = _filenamenach.replace(".jpg", "_org.jpg");
+        _filenamevon = _filenamevon.replace(".jpg", "_org.jpg");
+        FileDeleteOnServer(_filenamenach, _domainname);
+        FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
+    }
+}
+
+function UpdateConfigReference(_anzneueref, _domainname){
+    var index = 0;
+
+    if (_anzneueref == 1) {	
+        index = 0;
+    }
+
+    else if (_anzneueref == 2) {
+        index = 1;
+    }
+
+    _filenamenach = REFERENCES[index]["name"];
+    _filenamevon = _filenamenach.replace("/config/", "/img_tmp/");
+
+    FileDeleteOnServer(_filenamenach, _domainname);
+    FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
+
+    _filenamenach = _filenamenach.replace(".jpg", "_org.jpg");
+    _filenamevon = _filenamevon.replace(".jpg", "_org.jpg");
+
+    FileDeleteOnServer(_filenamenach, _domainname);
+    FileCopyOnServer(_filenamevon, _filenamenach, _domainname);
 }
 
 function MakeTempRefImage(_filename, _enhance, _domainname){
@@ -174,7 +226,7 @@ function MakeTempRefImage(_filename, _enhance, _domainname){
     try {
         xhttp.open("GET", url, false);
         xhttp.send();
-    } catch (error){}
+    } catch (error){ console.log(error); }
 
     if (xhttp.responseText == "CutImage Done") {
         if (_enhance == true) {
@@ -230,7 +282,7 @@ function decryptConfigPwOnSD(_domainname = getDomainname()) {
 	try {
         xhttp.open("GET", url, false);
         xhttp.send();
-	} catch (error) {}
+	} catch (error) { console.log(error); }
 	
 	if (xhttp.responseText == "decrypted") {
 		return true;
@@ -247,7 +299,7 @@ function decryptWifiPwOnSD(_domainname = getDomainname()) {
 	try {
         xhttp.open("GET", url, false);
         xhttp.send();
-	} catch (error) {}
+	} catch (error) { console.log(error); }
 	
 	if (xhttp.responseText == "decrypted") {
 		return true;

@@ -42,15 +42,15 @@ std::vector<double> ClassFlowCNNGeneral::getMeterValues(int _number = 0)
         return meterValues;
     }
 
-    for (int i = 0; i < GENERAL[_number]->ROI.size(); ++i)
+    for (int _roi = 0; _roi < GENERAL[_number]->ROI.size(); ++_roi)
     {
         if (CNNType == Digit)
         {
-            meterValues.push_back(GENERAL[_number]->ROI[i]->result_klasse);
+            meterValues.push_back(GENERAL[_number]->ROI[_roi]->result_klasse);
         }
         else
         {
-            meterValues.push_back(GENERAL[_number]->ROI[i]->result_float);
+            meterValues.push_back(GENERAL[_number]->ROI[_roi]->result_float);
         }
     }
 
@@ -81,9 +81,9 @@ std::string ClassFlowCNNGeneral::getReadout(int _number = 0, bool _extendedResol
             result = result + std::to_string(result_after_decimal_point);
         }
 
-        for (int i = GENERAL[_number]->ROI.size() - 2; i >= 0; --i)
+        for (int _roi = GENERAL[_number]->ROI.size() - 2; _roi >= 0; --_roi)
         {
-            prev = PointerEvalAnalog(GENERAL[_number]->ROI[i]->result_float, prev);
+            prev = PointerEvalAnalog(GENERAL[_number]->ROI[_roi]->result_float, prev);
             result = std::to_string(prev) + result;
         }
         return result;
@@ -91,11 +91,11 @@ std::string ClassFlowCNNGeneral::getReadout(int _number = 0, bool _extendedResol
 
     if (CNNType == Digit)
     {
-        for (int i = 0; i < GENERAL[_number]->ROI.size(); ++i)
+        for (int _roi = 0; _roi < GENERAL[_number]->ROI.size(); ++_roi)
         {
-            if ((GENERAL[_number]->ROI[i]->result_klasse >= 0) && (GENERAL[_number]->ROI[i]->result_klasse < 10))
+            if ((GENERAL[_number]->ROI[_roi]->result_klasse >= 0) && (GENERAL[_number]->ROI[_roi]->result_klasse < 10))
             {
-                result = result + std::to_string(GENERAL[_number]->ROI[i]->result_klasse);
+                result = result + std::to_string(GENERAL[_number]->ROI[_roi]->result_klasse);
             }
             else
             {
@@ -153,20 +153,20 @@ std::string ClassFlowCNNGeneral::getReadout(int _number = 0, bool _extendedResol
             }
         }
 
-        for (int i = GENERAL[_number]->ROI.size() - 2; i >= 0; --i)
+        for (int _roi = GENERAL[_number]->ROI.size() - 2; _roi >= 0; --_roi)
         {
-            if ((GENERAL[_number]->ROI[i]->result_float >= 0.0f) && (GENERAL[_number]->ROI[i]->result_float < 10.0f))
+            if ((GENERAL[_number]->ROI[_roi]->result_float >= 0.0f) && (GENERAL[_number]->ROI[_roi]->result_float < 10.0f))
             {
-                prev = PointerEvalHybrid(GENERAL[_number]->ROI[i]->result_float, GENERAL[_number]->ROI[i + 1]->result_float, prev);
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(DoubleHyprid10) - roi_" + std::to_string(i) + "prev= " + std::to_string(prev));
+                prev = PointerEvalHybrid(GENERAL[_number]->ROI[_roi]->result_float, GENERAL[_number]->ROI[_roi + 1]->result_float, prev);
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(DoubleHyprid10) - roi_" + std::to_string(_roi) + "prev= " + std::to_string(prev));
                 result = std::to_string(prev) + result;
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(DoubleHyprid10) - roi_" + std::to_string(i) + "result= " + result);
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(DoubleHyprid10) - roi_" + std::to_string(_roi) + "result= " + result);
             }
             else
             {
                 prev = -1;
                 result = "N" + result;
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(result_float < 0 /'N') - roi_" + std::to_string(i) + "result_float=" + std::to_string(GENERAL[_number]->ROI[i]->result_float));
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "getReadout(result_float < 0 /'N') - roi_" + std::to_string(_roi) + "result_float=" + std::to_string(GENERAL[_number]->ROI[_roi]->result_float));
             }
         }
         return result;
@@ -194,7 +194,7 @@ int ClassFlowCNNGeneral::PointerEvalHybrid(float number, float number_of_predece
 {
     int result = -1;
     int result_after_decimal_point = ((int)floor(number * 10.0f)) % 10;
-    int result_before_decimal_point = ((int)floor(number) + 10) % 10;
+    int result_before_decimal_point = ((int)(floor(number) + 10.0f)) % 10;
 
     if (eval_predecessors < 0)
     {
@@ -203,7 +203,7 @@ int ClassFlowCNNGeneral::PointerEvalHybrid(float number, float number_of_predece
         // add precisition of 2 digits and round before trunc
         // a number greater than 9.994999 is returned as 10, this leads to an error during the decimal shift because the NUMBERS[j]->ReturnRawValue is one digit longer.
         // To avoid this, an additional test must be carried out, see "if ((CNNType == DoubleHyprid10) || (CNNType == Digit100))" check in getReadout()
-        result = (int) (trunc(round((float)((int)(number + 10.0f) % 10) * 100.0f)) / 100.0f);
+        result = (int)(trunc(round((float)((int)(number + 10.0f) % 10) * 100.0f)) / 100.0f);
 
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalHybrid - No predecessor - Result = " + std::to_string(result) + " number: " + std::to_string(number) + " number_of_predecessors = " + std::to_string(number_of_predecessors) + " eval_predecessors = " + std::to_string(eval_predecessors) + " Digit_Uncertainty = " + std::to_string(Digit_Uncertainty));
         return result;
@@ -216,17 +216,17 @@ int ClassFlowCNNGeneral::PointerEvalHybrid(float number, float number_of_predece
         return result;
     }
 
-    if ((number_of_predecessors >= Digit_Transition_Area_Predecessor) && (number_of_predecessors <= (10.0 - Digit_Transition_Area_Predecessor)))
+    if ((number_of_predecessors >= (float)Digit_Transition_Area_Predecessor) && (number_of_predecessors <= (10.0f - (float)Digit_Transition_Area_Predecessor)))
     {
         // no digit change, because predecessor is far enough away (0+/-DigitTransitionRangePredecessor) --> number is rounded
         // Band around the digit --> Round off, as digit reaches inaccuracy in the frame
         if ((result_after_decimal_point <= DigitBand) || (result_after_decimal_point >= (10 - DigitBand)))
         {
-            result = ((int)round(number) + 10) % 10;
+            result = ((int)(round(number) + 10.0f)) % 10;
         }
         else
         {
-            result = ((int)trunc(number) + 10) % 10;
+            result = ((int)(trunc(number) + 10.0f)) % 10;
         }
 
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalHybrid - NO analogue predecessor, no change of digits, as pre-decimal point far enough away = " + std::to_string(result) + " number: " + std::to_string(number) + " number_of_predecessors = " + std::to_string(number_of_predecessors) + " eval_predecessors = " + std::to_string(eval_predecessors) + " Digit_Uncertainty = " + std::to_string(Digit_Uncertainty));
@@ -277,24 +277,24 @@ int ClassFlowCNNGeneral::PointerEvalAnalogToDigit(float number, float numeral_pr
 {
     int result = -1;
     int result_after_decimal_point = ((int)floor(number * 10.0f)) % 10;
-    int result_before_decimal_point = ((int)floor(number) + 10) % 10;
+    int result_before_decimal_point = ((int)(floor(number) + 10.0f)) % 10;
     bool roundedUp = false;
 
     // Within the digit inequalities
     // Band around the digit --> Round off, as digit reaches inaccuracy in the frame
-    if ((result_after_decimal_point >= (10 - (int)(Digit_Uncertainty * 10.0f))) || (eval_predecessors <= 4 && result_after_decimal_point >= 6))
+    if ((result_after_decimal_point >= (int)(10.0f - ((float)Digit_Uncertainty * 10.0f))) || (eval_predecessors <= 4 && result_after_decimal_point >= 6))
     {
         // or digit runs after (analogue =0..4, digit >=6)
-        result = (int)(round(number) + 10) % 10;
+        result = (int)(round(number) + 10.0f) % 10;
         roundedUp = true;
         // before/ after decimal point, because we adjust the number based on the uncertainty.
-        result_after_decimal_point = ((int)floor(result * 10)) % 10;
-        result_before_decimal_point = ((int)floor(result) + 10) % 10;
+        result_after_decimal_point = ((int)floor(result * 10.0f)) % 10;
+        result_before_decimal_point = ((int)(floor(result) + 10.0f)) % 10;
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalogToDigit - Digit Uncertainty - Result = " + std::to_string(result) + " number: " + std::to_string(number) + " numeral_preceder: " + std::to_string(numeral_preceder) + " erg before comma: " + std::to_string(result_before_decimal_point) + " erg after comma: " + std::to_string(result_after_decimal_point));
     }
     else
     {
-        result = (int)((int)trunc(number) + 10) % 10;
+        result = (int)((int)(trunc(number) + 10.0f)) % 10;
         LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalogToDigit - NO digit Uncertainty - Result = " + std::to_string(result) + " number: " + std::to_string(number) + " numeral_preceder = " + std::to_string(numeral_preceder));
     }
 
@@ -321,26 +321,26 @@ int ClassFlowCNNGeneral::PointerEvalAnalog(float number, int numeral_preceder)
         return result;
     }
 
-    float number_min = number - (float)Analog_error / 10.0f;
-    float number_max = number + (float)Analog_error / 10.0f;
+    float number_min = number - ((float)Analog_error / 10.0f);
+    float number_max = number + ((float)Analog_error / 10.0f);
 
     if ((int)floor(number_max) - (int)floor(number_min) != 0)
     {
-        if (numeral_preceder <= Analog_error)
+        if (numeral_preceder <= (int)Analog_error)
         {
-            result = ((int)floor(number_max) + 10) % 10;
+            result = ((int)(floor(number_max) + 10.0f)) % 10;
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalog - number ambiguous, correction upwards - result = " + std::to_string(result) + " number: " + std::to_string(number) + " numeral_preceder = " + std::to_string(numeral_preceder) + " Analog_error = " + std::to_string(Analog_error));
             return result;
         }
-        if (numeral_preceder >= (10 - Analog_error))
+        if (numeral_preceder >= (10 - (int)Analog_error))
         {
-            result = ((int)floor(number_min) + 10) % 10;
+            result = ((int)(floor(number_min) + 10.0f)) % 10;
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalog - number ambiguous, downward correction - result = " + std::to_string(result) + " number: " + std::to_string(number) + " numeral_preceder = " + std::to_string(numeral_preceder) + " Analog_error = " + std::to_string(Analog_error));
             return result;
         }
     }
 
-    result = ((int)floor(number) + 10) % 10;
+    result = ((int)(floor(number) + 10.0f)) % 10;
     LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "PointerEvalAnalog - number unambiguous, no correction necessary - result = " + std::to_string(result) + " number: " + std::to_string(number) + " numeral_preceder = " + std::to_string(numeral_preceder) + " Analog_error = " + std::to_string(Analog_error));
 
     return result;
@@ -455,12 +455,12 @@ bool ClassFlowCNNGeneral::ReadParameter(FILE *pfile, std::string &aktparamgraph)
         return false;
     }
 
-    for (int i = 0; i < GENERAL.size(); ++i)
+    for (int _number = 0; _number < GENERAL.size(); ++_number)
     {
-        for (int j = 0; j < GENERAL[i]->ROI.size(); ++j)
+        for (int _roi = 0; _roi < GENERAL[_number]->ROI.size(); ++_roi)
         {
-            GENERAL[i]->ROI[j]->image = new CImageBasis("ROI " + GENERAL[i]->ROI[j]->name, model_x_size, model_y_size, model_channel);
-            GENERAL[i]->ROI[j]->image_org = new CImageBasis("ROI " + GENERAL[i]->ROI[j]->name + " original", GENERAL[i]->ROI[j]->delta_x, GENERAL[i]->ROI[j]->delta_y, 3);
+            GENERAL[_number]->ROI[_roi]->image = new CImageBasis("ROI " + GENERAL[_number]->ROI[_roi]->name, model_x_size, model_y_size, model_channel);
+            GENERAL[_number]->ROI[_roi]->image_org = new CImageBasis("ROI " + GENERAL[_number]->ROI[_roi]->name + " original", GENERAL[_number]->ROI[_roi]->delta_x, GENERAL[_number]->ROI[_roi]->delta_y, 3);
         }
     }
 
@@ -469,11 +469,11 @@ bool ClassFlowCNNGeneral::ReadParameter(FILE *pfile, std::string &aktparamgraph)
 
 general *ClassFlowCNNGeneral::FindGENERAL(std::string _name_number)
 {
-    for (int i = 0; i < GENERAL.size(); ++i)
+    for (int _number = 0; _number < GENERAL.size(); ++_number)
     {
-        if (GENERAL[i]->name == _name_number)
+        if (GENERAL[_number]->name == _name_number)
         {
-            return GENERAL[i];
+            return GENERAL[_number];
         }
     }
 
@@ -773,34 +773,34 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
     LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _imagetime: " + std::to_string(_imagetime));
 
     // For each NUMBER
-    for (int j = 0; j < GENERAL.size(); ++j)
+    for (int _number = 0; _number < GENERAL.size(); ++_number)
     {
-        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Processing Number '" + GENERAL[j]->name + "'");
+        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Processing Number '" + GENERAL[_number]->name + "'");
 
         int start_roi = 0;
 
-        if ((numbers[j]->useMaxFlowRate) && (numbers[j]->PreValueValid) && (numbers[j]->timeStampLastValue == numbers[j]->timeStampLastPreValue))
+        if ((numbers[_number]->useMaxFlowRate) && (numbers[_number]->PreValueValid) && (numbers[_number]->timeStampLastValue == numbers[_number]->timeStampLastPreValue))
         {
-            int _AnzahlDigit = numbers[j]->AnzahlDigit;
+            int _AnzahlDigit = numbers[_number]->AnzahlDigit;
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _AnzahlDigit: " + std::to_string(_AnzahlDigit));
 
-            int _AnzahlAnalog = numbers[j]->AnzahlAnalog;
+            int _AnzahlAnalog = numbers[_number]->AnzahlAnalog;
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _AnzahlAnalog: " + std::to_string(_AnzahlAnalog));
 
-            float _MaxFlowRate = (numbers[j]->MaxFlowRate / 60); // in unit/minutes
+            float _MaxFlowRate = (numbers[_number]->MaxFlowRate / 60); // in unit/minutes
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _MaxFlowRate: " + std::to_string(_MaxFlowRate));
 
-            float _LastPreValueTimeDifference = (float)((difftime(_imagetime, numbers[j]->timeStampLastPreValue)) / 60); // in minutes
+            float _LastPreValueTimeDifference = (float)((difftime(_imagetime, numbers[_number]->timeStampLastPreValue)) / 60); // in minutes
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _LastPreValueTimeDifference: " + std::to_string(_LastPreValueTimeDifference) + " minutes");
 
-            std::string _PreValue_old = std::to_string((float)numbers[j]->PreValue);
+            std::string _PreValue_old = std::to_string((float)numbers[_number]->PreValue);
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _PreValue_old: " + _PreValue_old);
 
             ////////////////////////////////////////////////////
-            std::string _PreValue_new1 = std::to_string((float)numbers[j]->PreValue + (_MaxFlowRate * _LastPreValueTimeDifference));
+            std::string _PreValue_new1 = std::to_string((float)numbers[_number]->PreValue + (_MaxFlowRate * _LastPreValueTimeDifference));
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _PreValue_new1: " + _PreValue_new1);
 
-            std::string _PreValue_new2 = std::to_string((float)numbers[j]->PreValue - (_MaxFlowRate * _LastPreValueTimeDifference));
+            std::string _PreValue_new2 = std::to_string((float)numbers[_number]->PreValue - (_MaxFlowRate * _LastPreValueTimeDifference));
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _PreValue_new2: " + _PreValue_new2);
 
             ////////////////////////////////////////////////////
@@ -810,12 +810,12 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
             if (_pospunkt > -1)
             {
                 _CorrectionValue = _PreValue_old.length() - _pospunkt;
-                _CorrectionValue = _CorrectionValue - numbers[j]->Nachkomma;
+                _CorrectionValue = _CorrectionValue - numbers[_number]->Nachkomma;
             }
             LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "doNeuralNetwork, _CorrectionValue: " + std::to_string(_CorrectionValue));
 
             int _PreValue_len = ((int)_PreValue_old.length() - _CorrectionValue);
-            if (numbers[j]->isExtendedResolution)
+            if (numbers[_number]->ExtendedResolution)
             {
                 _PreValue_len = _PreValue_len - 1;
             }
@@ -845,7 +845,7 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
             ////////////////////////////////////////////////////
             // (-) Find out which Numbers should not change
             int _NumbersNotChanged2 = _NumbersNotChanged1;
-            if (numbers[j]->AllowNegativeRates)
+            if (numbers[_number]->AllowNegativeRates)
             {
                 int _DecimalPoint2 = 0;
                 while ((_PreValue_old.length() > _NumbersNotChanged2) && (_PreValue_old[_NumbersNotChanged2] == _PreValue_new2[_NumbersNotChanged2]))
@@ -898,9 +898,9 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
         }
 
         // For each ROI
-        for (int i = 0; i < GENERAL[j]->ROI.size(); ++i)
+        for (int _roi = 0; _roi < GENERAL[_number]->ROI.size(); ++_roi)
         {
-            LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "ROI #" + std::to_string(i) + " - TfLite");
+            LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "ROI #" + std::to_string(_roi) + " - TfLite");
 
             switch (CNNType)
             {
@@ -908,7 +908,7 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
             {
                 LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "CNN Type: Analogue");
 
-                tflite->LoadInputImageBasis(GENERAL[j]->ROI[i]->image);
+                tflite->LoadInputImageBasis(GENERAL[_number]->ROI[_roi]->image);
 
                 tflite->Invoke();
                 LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Analogue - After Invoke");
@@ -918,7 +918,7 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
 
                 float _result = fmod((atan2(_value1, _value2) / (M_PI * 2.0f) + 2.0f), 1.0f);
 
-                if (GENERAL[j]->ROI[i]->ccw)
+                if (GENERAL[_number]->ROI[_roi]->ccw)
                 {
                     _result = 10.0f - (_result * 10.0f);
                 }
@@ -927,34 +927,34 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
                     _result = _result * 10.0f;
                 }
 
-                if (i >= start_roi)
+                if (_roi >= start_roi)
                 {
-                    GENERAL[j]->ROI[i]->result_float = _result;
+                    GENERAL[_number]->ROI[_roi]->result_float = _result;
                 }
 
-                GENERAL[j]->ROI[i]->raw_result_float = _result;
+                GENERAL[_number]->ROI[_roi]->raw_result_float = _result;
 
                 if ((_result < 0.0f) || (_result >= 10.0f))
                 {
-                    GENERAL[j]->ROI[i]->isReject = true;
+                    GENERAL[_number]->ROI[_roi]->isReject = true;
                 }
                 else
                 {
-                    GENERAL[j]->ROI[i]->isReject = false;
+                    GENERAL[_number]->ROI[_roi]->isReject = false;
                 }
 
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "General result (Analog) - roi_" + std::to_string(i) + ": " + std::to_string(GENERAL[j]->ROI[i]->raw_result_float));
-                ESP_LOGD(TAG, "General result (Analog) - roi_%i - ccw: %d -  %f", i, GENERAL[j]->ROI[i]->ccw, GENERAL[j]->ROI[i]->raw_result_float);
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "General result (Analog) - roi_" + std::to_string(_roi) + ": " + std::to_string(GENERAL[_number]->ROI[_roi]->raw_result_float));
+                ESP_LOGD(TAG, "General result (Analog) - roi_%i - ccw: %d -  %f", _roi, GENERAL[_number]->ROI[_roi]->ccw, GENERAL[_number]->ROI[_roi]->raw_result_float);
 
                 if (isLogImage)
                 {
-                    std::string _image_name = GENERAL[j]->name + "_" + GENERAL[j]->ROI[i]->name;
+                    std::string _image_name = GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name;
 
                     if (isLogImageSelect)
                     {
-                        if (LogImageSelect.find(GENERAL[j]->ROI[i]->name) != std::string::npos)
+                        if (LogImageSelect.find(GENERAL[_number]->ROI[_roi]->name) != std::string::npos)
                         {
-                            LogImage(logPath, _image_name, &GENERAL[j]->ROI[i]->raw_result_float, NULL, time_value, GENERAL[j]->ROI[i]->image_org);
+                            LogImage(logPath, _image_name, &GENERAL[_number]->ROI[_roi]->raw_result_float, NULL, time_value, GENERAL[_number]->ROI[_roi]->image_org);
                         }
                     }
                 }
@@ -965,36 +965,36 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
             {
                 LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "CNN Type: Digit");
 
-                int _result = tflite->GetClassFromImageBasis(GENERAL[j]->ROI[i]->image);
+                int _result = tflite->GetClassFromImageBasis(GENERAL[_number]->ROI[_roi]->image);
 
-                if (i >= start_roi)
+                if (_roi >= start_roi)
                 {
-                    GENERAL[j]->ROI[i]->result_klasse = _result;
+                    GENERAL[_number]->ROI[_roi]->result_klasse = _result;
                 }
 
-                GENERAL[j]->ROI[i]->raw_result_klasse = _result;
+                GENERAL[_number]->ROI[_roi]->raw_result_klasse = _result;
 
                 if ((_result < 0) || (_result >= 10))
                 {
-                    GENERAL[j]->ROI[i]->isReject = true;
+                    GENERAL[_number]->ROI[_roi]->isReject = true;
                 }
                 else
                 {
-                    GENERAL[j]->ROI[i]->isReject = false;
+                    GENERAL[_number]->ROI[_roi]->isReject = false;
                 }
 
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "General result (Digit) - roi_" + std::to_string(i) + ": " + std::to_string(GENERAL[j]->ROI[i]->raw_result_klasse));
-                ESP_LOGD(TAG, "General result (Digit) - roi_%i: %d", i, GENERAL[j]->ROI[i]->raw_result_klasse);
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "General result (Digit) - roi_" + std::to_string(_roi) + ": " + std::to_string(GENERAL[_number]->ROI[_roi]->raw_result_klasse));
+                ESP_LOGD(TAG, "General result (Digit) - roi_%i: %d", _roi, GENERAL[_number]->ROI[_roi]->raw_result_klasse);
 
                 if (isLogImage)
                 {
-                    std::string _image_name = GENERAL[j]->name + "_" + GENERAL[j]->ROI[i]->name;
+                    std::string _image_name = GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name;
 
                     if (isLogImageSelect)
                     {
-                        if (LogImageSelect.find(GENERAL[j]->ROI[i]->name) != std::string::npos)
+                        if (LogImageSelect.find(GENERAL[_number]->ROI[_roi]->name) != std::string::npos)
                         {
-                            LogImage(logPath, _image_name, NULL, &GENERAL[j]->ROI[i]->raw_result_klasse, time_value, GENERAL[j]->ROI[i]->image_org);
+                            LogImage(logPath, _image_name, NULL, &GENERAL[_number]->ROI[_roi]->raw_result_klasse, time_value, GENERAL[_number]->ROI[_roi]->image_org);
                         }
                     }
                 }
@@ -1005,7 +1005,7 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
             {
                 LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "CNN Type: DoubleHyprid10");
 
-                tflite->LoadInputImageBasis(GENERAL[j]->ROI[i]->image);
+                tflite->LoadInputImageBasis(GENERAL[_number]->ROI[_roi]->image);
 
                 tflite->Invoke();
                 LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "DoubleHyprid10 - After Invoke");
@@ -1040,39 +1040,39 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
 
                 if (_fit < CNNGoodThreshold)
                 {
-                    GENERAL[j]->ROI[i]->isReject = true;
+                    GENERAL[_number]->ROI[_roi]->isReject = true;
                     _result = -1;
                     temp_bufer = "DoubleHyprid10 - Value Rejected due to Threshold (Fit: " + std::to_string(_fit) + ", Threshold: " + std::to_string(CNNGoodThreshold) + ")";
                     LogFile.WriteToFile(ESP_LOG_WARN, TAG, temp_bufer);
                 }
                 else
                 {
-                    GENERAL[j]->ROI[i]->isReject = false;
+                    GENERAL[_number]->ROI[_roi]->isReject = false;
                 }
 
-                if (GENERAL[j]->ROI[i]->ccw)
+                if (GENERAL[_number]->ROI[_roi]->ccw)
                 {
                 }
 
-                if (i >= start_roi)
+                if (_roi >= start_roi)
                 {
-                    GENERAL[j]->ROI[i]->result_float = _result;
+                    GENERAL[_number]->ROI[_roi]->result_float = _result;
                 }
 
-                GENERAL[j]->ROI[i]->raw_result_float = _result;
+                GENERAL[_number]->ROI[_roi]->raw_result_float = _result;
 
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Result General(DoubleHyprid10) - roi_" + std::to_string(i) + ": " + std::to_string(GENERAL[j]->ROI[i]->raw_result_float));
-                ESP_LOGD(TAG, "Result General(DoubleHyprid10) - roi_%i: %f", i, GENERAL[j]->ROI[i]->raw_result_float);
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Result General(DoubleHyprid10) - roi_" + std::to_string(_roi) + ": " + std::to_string(GENERAL[_number]->ROI[_roi]->raw_result_float));
+                ESP_LOGD(TAG, "Result General(DoubleHyprid10) - roi_%i: %f", _roi, GENERAL[_number]->ROI[_roi]->raw_result_float);
 
                 if (isLogImage)
                 {
-                    std::string _image_name = GENERAL[j]->name + "_" + GENERAL[j]->ROI[i]->name;
+                    std::string _image_name = GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name;
 
                     if (isLogImageSelect)
                     {
-                        if (LogImageSelect.find(GENERAL[j]->ROI[i]->name) != std::string::npos)
+                        if (LogImageSelect.find(GENERAL[_number]->ROI[_roi]->name) != std::string::npos)
                         {
-                            LogImage(logPath, _image_name, &_result_save_file, NULL, time_value, GENERAL[j]->ROI[i]->image_org);
+                            LogImage(logPath, _image_name, &_result_save_file, NULL, time_value, GENERAL[_number]->ROI[_roi]->image_org);
                         }
                     }
                 }
@@ -1084,13 +1084,13 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
             {
                 LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "CNN Type: Digit100 or Analogue100");
 
-                tflite->LoadInputImageBasis(GENERAL[j]->ROI[i]->image);
+                tflite->LoadInputImageBasis(GENERAL[_number]->ROI[_roi]->image);
                 tflite->Invoke();
 
                 int _num = tflite->GetOutClassification();
                 float _result = 0.0f;
 
-                if (GENERAL[j]->ROI[i]->ccw)
+                if (GENERAL[_number]->ROI[_roi]->ccw)
                 {
                     _result = 10.0f - ((float)_num / 10.0f);
                 }
@@ -1099,34 +1099,34 @@ bool ClassFlowCNNGeneral::doNeuralNetwork(std::string time_value)
                     _result = (float)_num / 10.0f;
                 }
 
-                if (i >= start_roi)
+                if (_roi >= start_roi)
                 {
-                    GENERAL[j]->ROI[i]->result_float = _result;
+                    GENERAL[_number]->ROI[_roi]->result_float = _result;
                 }
 
-                GENERAL[j]->ROI[i]->raw_result_float = _result;
+                GENERAL[_number]->ROI[_roi]->raw_result_float = _result;
 
                 if ((_result < 0.0f) || (_result >= 10.0f))
                 {
-                    GENERAL[j]->ROI[i]->isReject = true;
+                    GENERAL[_number]->ROI[_roi]->isReject = true;
                 }
                 else
                 {
-                    GENERAL[j]->ROI[i]->isReject = false;
+                    GENERAL[_number]->ROI[_roi]->isReject = false;
                 }
 
-                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Result General(Digit100 or Analogue100) - roi_" + std::to_string(i) + ": " + std::to_string(GENERAL[j]->ROI[i]->raw_result_float));
-                ESP_LOGD(TAG, "Result General(Digit100 or Analogue100) - roi_%i - ccw: %d - %f", i, GENERAL[j]->ROI[i]->ccw, GENERAL[j]->ROI[i]->raw_result_float);
+                LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "Result General(Digit100 or Analogue100) - roi_" + std::to_string(_roi) + ": " + std::to_string(GENERAL[_number]->ROI[_roi]->raw_result_float));
+                ESP_LOGD(TAG, "Result General(Digit100 or Analogue100) - roi_%i - ccw: %d - %f", _roi, GENERAL[_number]->ROI[_roi]->ccw, GENERAL[_number]->ROI[_roi]->raw_result_float);
 
                 if (isLogImage)
                 {
-                    std::string _image_name = GENERAL[j]->name + "_" + GENERAL[j]->ROI[i]->name;
+                    std::string _image_name = GENERAL[_number]->name + "_" + GENERAL[_number]->ROI[_roi]->name;
 
                     if (isLogImageSelect)
                     {
-                        if (LogImageSelect.find(GENERAL[j]->ROI[i]->name) != std::string::npos)
+                        if (LogImageSelect.find(GENERAL[_number]->ROI[_roi]->name) != std::string::npos)
                         {
-                            LogImage(logPath, _image_name, &GENERAL[j]->ROI[i]->raw_result_float, NULL, time_value, GENERAL[j]->ROI[i]->image_org);
+                            LogImage(logPath, _image_name, &GENERAL[_number]->ROI[_roi]->raw_result_float, NULL, time_value, GENERAL[_number]->ROI[_roi]->image_org);
                         }
                     }
                 }

@@ -312,11 +312,11 @@ void ClassFlowControll::InitFlow(std::string config)
     flowpostprocessing = NULL;
 
     ClassFlow *cfc;
+
     config = format_filename(config);
     FILE *pFile = fopen(config.c_str(), "r");
 
     std::string line = "";
-
     char temp_char[1024];
 
     if (pFile != NULL)
@@ -632,7 +632,7 @@ bool ClassFlowControll::ReadParameter(FILE *pFile, std::string &aktparamgraph)
                 int RSSIThresholdTMP = atoi(splitted[1].c_str());
                 RSSIThresholdTMP = min(0, max(-100, RSSIThresholdTMP)); // Verify input limits (-100 - 0)
 
-                if (ChangeRSSIThreshold(NETWORK_CONFIG_FILE, RSSIThresholdTMP))
+                if ((ChangeRSSIThreshold(WLAN_CONFIG_FILE, RSSIThresholdTMP)) || (ChangeRSSIThreshold(NETWORK_CONFIG_FILE, RSSIThresholdTMP)))
                 {
                     // reboot necessary so that the new wlan.ini is also used !!!
                     fclose(pFile);
@@ -643,7 +643,7 @@ bool ClassFlowControll::ReadParameter(FILE *pFile, std::string &aktparamgraph)
 #endif
             else if (_param == "HOSTNAME")
             {
-                if (ChangeHostName(NETWORK_CONFIG_FILE, splitted[1]))
+                if ((ChangeHostName(WLAN_CONFIG_FILE, splitted[1])) || (ChangeHostName(NETWORK_CONFIG_FILE, splitted[1])))
                 {
                     // reboot necessary so that the new wlan.ini is also used !!!
                     fclose(pFile);

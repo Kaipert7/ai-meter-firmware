@@ -25,6 +25,11 @@
         }
     </style>
 
+    <script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script>
+    <script type="text/javascript" src="jszip.min.js?v=$COMMIT_HASH"></script>
+    <script type="text/javascript" src="FileSaver.min.js?v=$COMMIT_HASH"></script>
+
+    <script type="text/javascript">var domainname = getDomainname();</script>
 </head>
 
 <body style="font-family: arial; padding: 0px 10px;">
@@ -36,21 +41,15 @@
     <hr>
     <h2>Restore Configuration</h2>
     <p>Use the <a href="/fileserver/config/" target="_self">File Server</a> to upload individual files.</p>
-</body>
 
-
-<script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script>
-<script type="text/javascript" src="jszip.min.js?v=$COMMIT_HASH"></script>
-<script type="text/javascript" src="FileSaver.min.js?v=$COMMIT_HASH"></script>
-<script>
-
+<script type="text/javascript">
 function startBackup() {  
     document.getElementById("progress").innerHTML = "Creating backup...<br>\n";
     
     // Get hostname
     try {
         var xhttp = new XMLHttpRequest();
-        xhttp.open("GET", getDomainname() + "/info?type=Hostname", false);
+        xhttp.open("GET", domainname + "/info?type=Hostname", false);
         xhttp.send();
         hostname = xhttp.responseText;
     }
@@ -69,7 +68,7 @@ function startBackup() {
     setStatus("Fetching File List...");
     try {
         var xhttp = new XMLHttpRequest();
-        xhttp.open("GET", getDomainname() + "/fileserver/config/", false);
+        xhttp.open("GET", domainname + "/fileserver/config/", false);
         xhttp.send();
         
         var parser = new DOMParser();
@@ -85,7 +84,7 @@ function startBackup() {
     
     for (a of list) {
         url = a.getAttribute("href");
-        urls.push(getDomainname() + url);
+        urls.push(domainname + url);
     }
     
     // Pack as zip and download
@@ -97,7 +96,6 @@ function startBackup() {
         return;
     }
 }
-
 
 function fetchFiles(urls, filesData, index, retry, zipFilename) {
     url = urls[index];
@@ -172,7 +170,6 @@ function fetchFiles(urls, filesData, index, retry, zipFilename) {
     xhr.send(null);
 }
 
-
 function generateZipFile(urls, filesData, zipFilename) {
     setStatus("Creating Zip File...");
 
@@ -190,15 +187,8 @@ function generateZipFile(urls, filesData, zipFilename) {
     setStatus("Backup completed");
 }
 
-
 const backup = (urls, zipFilename) => {
-    if(!urls) return;
-
-    /* Testing */
-    /*len = urls.length;
-    for (i = 0; i < len - 3; i++) {
-        urls.pop();
-    }*/
+    if(!urls) { return; }
 
     console.log(urls);
 
@@ -218,5 +208,5 @@ function getFilenameFromUrl(url) {
 }
 
 </script>
-
+</body>
 </html>

@@ -40,32 +40,33 @@
                 font-size: 16px;
             }
         </style>
-        <script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script> 
+		
+        <script type="text/javascript" src="common.js?v=$COMMIT_HASH"></script>
+	    <script type="text/javascript">var domainname = getDomainname();</script>
     </head>
+	
     <body>
         <div class="box">
             <div class="row header">
                 <button class="button" onClick="reload();">Reload</button>
-                <button class="button" onClick="window.open(getDomainname() + '/logfileact');">Show Full Log</button>
-                <button class="button" onClick="window.location.href = getDomainname() + '/fileserver/log/message/'">Show Older Log Files</button>
+                <button class="button" onClick="window.open(domainname + '/logfileact');">Show Full Log</button>
+                <button class="button" onClick="window.location.href = domainname + '/fileserver/log/message/'">Show Older Log Files</button>
             </div>
             <div class="row content" id="log"><br><br><br><b>Loading logfile, please wait...</b></div>
             <div class="row footer">
                 <button class="button" onClick="reload();">Reload</button>
-                <button class="button" onClick="window.open(getDomainname() + '/logfileact');">Show Full Log</button>
-                <button class="button" onClick="window.location.href = getDomainname() + '/fileserver/log/message/'">Show Older Log Files</button>
+                <button class="button" onClick="window.open(domainname + '/logfileact');">Show Full Log</button>
+                <button class="button" onClick="window.location.href = domainname + '/fileserver/log/message/'">Show Older Log Files</button>
             </div>
-          </div>
-    </body>
+        </div>
 
-    <script>  
+    <script type="text/javascript">  
         function reload() {
           //  document.getElementById('log').innerHTML += "<br><b>Reloading...<b><br><br>";
             document.getElementById('log').innerHTML += "<b>Reloading...</b>";
             window.scrollBy(0,document.body.scrollHeight);
-            funcRequest(getDomainname() + '/log');
+            funcRequest(domainname + '/log');
         } 
-
 
         function processLogLine(line, index, arr) {
             /* Make sure the whitespaces in the uptime field get persevered */
@@ -113,7 +114,8 @@
             });
         }
 
-        funcRequest(getDomainname() + '/log');
+        funcRequest(domainname + '/log');
 
     </script>
+    </body>
 </html>

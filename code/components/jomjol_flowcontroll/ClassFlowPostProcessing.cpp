@@ -79,7 +79,7 @@ std::string ClassFlowPostProcessing::getJsonFromNumber(int i, std::string _linee
     {
         json += "    \"rate\": \"\"," + _lineend;
     }
-	
+
     if (NUMBERS[i]->ReturnChangeAbsolute.length() > 0)
     {
         json += "    \"absrate\": \"" + NUMBERS[i]->ReturnChangeAbsolute + "\"," + _lineend;
@@ -351,7 +351,6 @@ ClassFlowPostProcessing::ClassFlowPostProcessing(std::vector<ClassFlow *> *lfc, 
 {
     PreValueUse = false;
     PreValueAgeStartup = 30;
-    SkipErrorMessage = false;
     ListFlowControll = NULL;
     FilePreValue = format_filename("/sdcard/config/prevalue.ini");
     ListFlowControll = lfc;
@@ -369,7 +368,7 @@ ClassFlowPostProcessing::ClassFlowPostProcessing(std::vector<ClassFlow *> *lfc, 
     }
 }
 
-void ClassFlowPostProcessing::handleDecimalExtendedResolution(std::string _decsep, std::string _value)
+void ClassFlowPostProcessing::handleExtendedResolution(std::string _decsep, std::string _value)
 {
     std::string _digit;
     int _pospunkt = _decsep.find_first_of(".");
@@ -390,12 +389,12 @@ void ClassFlowPostProcessing::handleDecimalExtendedResolution(std::string _decse
         // Set to default first (if nothing else is set)
         if ((_digit == "default") || (NUMBERS[j]->name == _digit))
         {
-            NUMBERS[j]->isExtendedResolution = temp_value;
+            NUMBERS[j]->ExtendedResolution = temp_value;
         }
     }
 }
 
-void ClassFlowPostProcessing::handleDecimalSeparator(std::string _decsep, std::string _value)
+void ClassFlowPostProcessing::handleDecimalShift(std::string _decsep, std::string _value)
 {
     std::string _digit;
     int _pospunkt = _decsep.find_first_of(".");
@@ -456,6 +455,32 @@ void ClassFlowPostProcessing::handleAnalogToDigitTransitionStart(std::string _de
         if ((_digit == "default") || (NUMBERS[j]->name == _digit))
         {
             NUMBERS[j]->AnalogToDigitTransitionStart = temp_value;
+        }
+    }
+}
+
+void ClassFlowPostProcessing::handleSkipErrorMessage(std::string _decsep, std::string _value)
+{
+    std::string _digit;
+    int _pospunkt = _decsep.find_first_of(".");
+
+    if (_pospunkt > -1)
+    {
+        _digit = _decsep.substr(0, _pospunkt);
+    }
+    else
+    {
+        _digit = "default";
+    }
+
+    for (int j = 0; j < NUMBERS.size(); ++j)
+    {
+        bool temp_value = alphanumeric_to_boolean(_value);
+
+        // Set to default first (if nothing else is set)
+        if ((_digit == "default") || (NUMBERS[j]->name == _digit))
+        {
+            NUMBERS[j]->SkipErrorMessage = temp_value;
         }
     }
 }
@@ -679,7 +704,7 @@ bool ClassFlowPostProcessing::ReadParameter(FILE *pFile, std::string &aktparamgr
             }
             else if (_param == "SKIPERRORMESSAGE")
             {
-                SkipErrorMessage = alphanumeric_to_boolean(splitted[1]);
+                handleSkipErrorMessage(splitted[0], splitted[1]);
             }
             else if (_param == "ALLOWNEGATIVERATES")
             {
@@ -687,7 +712,7 @@ bool ClassFlowPostProcessing::ReadParameter(FILE *pFile, std::string &aktparamgr
             }
             else if (_param == "DECIMALSHIFT")
             {
-                handleDecimalSeparator(splitted[0], splitted[1]);
+                handleDecimalShift(splitted[0], splitted[1]);
             }
             else if (_param == "ANALOGTODIGITTRANSITIONSTART")
             {
@@ -711,7 +736,7 @@ bool ClassFlowPostProcessing::ReadParameter(FILE *pFile, std::string &aktparamgr
             }
             else if (_param == "EXTENDEDRESOLUTION")
             {
-                handleDecimalExtendedResolution(splitted[0], splitted[1]);
+                handleExtendedResolution(splitted[0], splitted[1]);
             }
             else if (_param == "IGNORELEADINGNAN")
             {
@@ -788,6 +813,7 @@ void ClassFlowPostProcessing::InitNUMBERS()
         _number->PreValueValid = false;
         _number->ErrorMessage = false;
         _number->ErrorMessageText = ""; // Error message for consistency check
+        _number->SkipErrorMessage = false;
         _number->AllowNegativeRates = false;
         _number->DecimalShift = 0;
         _number->DecimalShiftInitial = 0;
@@ -798,13 +824,13 @@ void ClassFlowPostProcessing::InitNUMBERS()
         _number->MaxRateType = AbsoluteChange;
         _number->useMaxRateValue = false;
         _number->ChangeRateThreshold = 2;
-        _number->isExtendedResolution = false;
+        _number->ExtendedResolution = false;
         _number->IgnoreLeadingNaN = false;
 
-        _number->Value = 0.0f;           // last value read out, incl. corrections
+        _number->Value = 0.0f;        // last value read out, incl. corrections
         _number->ReturnValue = "";    // corrected return value, possibly with error message
         _number->ReturnRawValue = ""; // raw value (with N & leading 0)
-        _number->FlowRateAct = 0.0f;     // m3 / min
+        _number->FlowRateAct = 0.0f;  // m3 / min
 
         _number->Nachkomma = _number->AnzahlAnalog;
 
@@ -884,7 +910,7 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
 
         NUMBERS[j]->Value = -1;
 
-        if (SkipErrorMessage)
+        if (NUMBERS[j]->SkipErrorMessage)
         {
             NUMBERS[j]->ReturnValue = std::to_string(NUMBERS[j]->PreValue);
             NUMBERS[j]->ReturnRawValue = NUMBERS[j]->ReturnValue;
@@ -923,11 +949,12 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
         int previous_value = -1;
         if (NUMBERS[j]->analog_roi)
         {
-            NUMBERS[j]->ReturnRawValue = flowAnalog->getReadout(j, NUMBERS[j]->isExtendedResolution);
+            NUMBERS[j]->ReturnRawValue = flowAnalog->getReadout(j, NUMBERS[j]->ExtendedResolution);
 
             if (NUMBERS[j]->ReturnRawValue.length() > 0)
             {
                 char temp_char = NUMBERS[j]->ReturnRawValue[0];
+
                 if (temp_char >= 48 && temp_char <= 57)
                 {
                     previous_value = temp_char - 48;
@@ -948,7 +975,7 @@ bool ClassFlowPostProcessing::doFlow(std::string temp_time)
             }
             else
             {
-                NUMBERS[j]->ReturnRawValue = flowDigit->getReadout(j, NUMBERS[j]->isExtendedResolution, previous_value); // Extended Resolution only if there are no analogue digits
+                NUMBERS[j]->ReturnRawValue = flowDigit->getReadout(j, NUMBERS[j]->ExtendedResolution, previous_value); // Extended Resolution only if there are no analogue digits
             }
         }
 
@@ -1143,7 +1170,7 @@ void ClassFlowPostProcessing::UpdateNachkommaDecimalShift()
             NUMBERS[j]->DecimalShift = NUMBERS[j]->DecimalShiftInitial;
 
             // Extended resolution is on and should also be used for this digit.
-            if (NUMBERS[j]->isExtendedResolution && flowDigit->isExtendedResolution())
+            if (NUMBERS[j]->ExtendedResolution && flowDigit->isExtendedResolution())
             {
                 NUMBERS[j]->DecimalShift = NUMBERS[j]->DecimalShift - 1;
             }
@@ -1156,7 +1183,7 @@ void ClassFlowPostProcessing::UpdateNachkommaDecimalShift()
             // ESP_LOGD(TAG, "Nur analog");
             NUMBERS[j]->DecimalShift = NUMBERS[j]->DecimalShiftInitial;
 
-            if (NUMBERS[j]->isExtendedResolution && flowAnalog->isExtendedResolution())
+            if (NUMBERS[j]->ExtendedResolution && flowAnalog->isExtendedResolution())
             {
                 NUMBERS[j]->DecimalShift = NUMBERS[j]->DecimalShift - 1;
             }
@@ -1173,7 +1200,7 @@ void ClassFlowPostProcessing::UpdateNachkommaDecimalShift()
             NUMBERS[j]->Nachkomma = NUMBERS[j]->analog_roi->ROI.size() - NUMBERS[j]->DecimalShift;
 
             // Extended resolution is on and should also be used for this digit.
-            if (NUMBERS[j]->isExtendedResolution && flowAnalog->isExtendedResolution())
+            if (NUMBERS[j]->ExtendedResolution && flowAnalog->isExtendedResolution())
             {
                 NUMBERS[j]->Nachkomma = NUMBERS[j]->Nachkomma + 1;
             }
