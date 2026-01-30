@@ -9,8 +9,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Show workspace & verify structure
+      run: |
+        echo "GITHUB_WORKSPACE=${{ github.workspace }}"
+        ls -la ${{ github.workspace }}
 
     - name: Install ESP-IDF
       uses: espressif/esp-idf-ci-action@v1
@@ -20,10 +25,13 @@ jobs:
 
     - name: Add Board Config
       run: |
-        mkdir -p components/board_s3
-        cp boards/ai-meter-s3.h components/board_s3/board.h
+        mkdir -p ${{ github.workspace }}/components/board_s3
+        cp ${{ github.workspace }}/boards/ai-meter-s3.h ${{ github.workspace }}/components/board_s3/board.h
+        echo "Board config installed:"
+        ls -la ${{ github.workspace }}/components/board_s3
 
-    - name: Build Firmware
+    - name: Build Firmware (ESP32-S3)
+      working-directory: ${{ github.workspace }}
       run: |
         idf.py set-target esp32s3
         idf.py build
